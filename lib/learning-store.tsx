@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createTopicDocument, parseMarkdownFile } from "@/lib/document";
 import { decomposeQuery, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
 import { parseOffTopic } from "@/lib/mock-ai";
