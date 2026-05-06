@@ -25,7 +25,7 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
   };
 
   return (
-    <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-line bg-white/92 px-4 py-3 backdrop-blur">
+    <footer className="shrink-0 border-t border-line bg-white/92 px-4 py-3 backdrop-blur z-30">
       <div className="mx-auto max-w-4xl">
         {questions.length ? (
           <div className="mb-3 max-h-[48vh] overflow-y-auto rounded-lg border border-line bg-paper p-4 shadow-soft">
@@ -121,7 +121,10 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
                 className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
                 type="button"
                 disabled={disabled || !questions.some((question) => question.selected && question.query.trim())}
-                onClick={() => confirmDecomposition(renumberQuestions(questions))}
+                onClick={() => {
+                  confirmDecomposition(renumberQuestions(questions));
+                  setLocalPending(null);
+                }}
               >
                 顺序追问
               </button>
@@ -140,13 +143,13 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
 
         <div className="grid grid-cols-[auto_1fr_auto] items-end gap-2">
           <button
-            className="grid size-11 place-items-center rounded-md border border-line bg-paper text-lg hover:border-focus disabled:opacity-35"
+            className="grid h-11 place-items-center px-3 rounded-md border border-line bg-paper text-sm hover:border-focus disabled:opacity-35 transition-colors focus:bg-mist active:bg-mist"
             type="button"
             title="返回上一层"
             onClick={jumpToParent}
             disabled={disabled}
           >
-            ↑
+            ↑ 返回上层
           </button>
           <textarea
             className="max-h-36 min-h-11 resize-none rounded-md border border-line bg-paper px-4 py-3 text-sm leading-6 outline-none focus:border-focus"

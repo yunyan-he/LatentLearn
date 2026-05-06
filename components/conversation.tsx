@@ -66,6 +66,11 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
               "正在组织讲解..."
             ) : null}
           </div>
+          {node.aiResponse ? (
+            <div className="mt-2 flex justify-end">
+              <CopyButton text={node.aiResponse} />
+            </div>
+          ) : null}
           {answerState.status === "streaming" && answerState.nodeId === node.id ? (
             <span className="mt-3 inline-block h-5 w-1 animate-pulse bg-focus align-bottom" />
           ) : null}
@@ -99,3 +104,38 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
     </div>
   );
 }
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      console.error("Copy failed", e);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 rounded border border-transparent px-2 py-1 text-xs text-muted transition-colors hover:border-line hover:bg-mist hover:text-ink"
+      title="复制内容"
+    >
+      {copied ? (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          已复制
+        </>
+      ) : (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 20 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          复制
+        </>
+      )}
+    </button>
+  );
+}
+

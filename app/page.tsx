@@ -27,8 +27,10 @@ function Workspace() {
   const activeResponseLength = path[path.length - 1]?.aiResponse.length ?? 0;
 
   const jumpToNode = (nodeId: string) => {
-    const target = scrollRefs.current[nodeId];
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+      const target = scrollRefs.current[nodeId];
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
   };
 
   useEffect(() => {
@@ -52,7 +54,7 @@ function Workspace() {
         onToggleTree={() => setTreeOpen((value) => !value)}
       />
       <main className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="min-h-0 overflow-y-auto px-5 pb-36 pt-6 lg:px-10">
+        <section className="min-h-0 overflow-y-auto px-5 pb-6 pt-6 lg:px-10">
           <Conversation
             path={path}
             focusId={focusId}
@@ -62,7 +64,10 @@ function Workspace() {
             onQuote={(text, mode) => {
               setAnchor(text);
               const prefix = mode === "explain" ? "解释这句话：" : mode === "expand" ? "展开讲讲：" : "";
-              setDraft(`> ${text}\n\n${prefix}`);
+              setDraft((prev) => {
+                const addition = `> ${text}\n\n${prefix}`;
+                return prev ? `${prev}\n\n${addition}` : addition;
+              });
             }}
           />
           <div ref={scrollAnchorRef} className="h-2" />
