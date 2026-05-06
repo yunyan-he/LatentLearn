@@ -1,30 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLearning } from "@/lib/learning-store";
 import type { DecomposedQuestion, QuestionPlan } from "@/lib/types";
 
 interface ComposerProps {
   draft: string;
-  anchor?: string;
   disabled: boolean;
   onDraftChange(value: string): void;
-  onAnchorClear(): void;
-  onSubmit(query: string, anchor?: string): Promise<void>;
+  onSubmit(query: string): Promise<void>;
 }
 
-export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear, onSubmit }: ComposerProps) {
+export function Composer({ draft, disabled, onDraftChange, onSubmit }: ComposerProps) {
   const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState } = useLearning();
   const [localPending, setLocalPending] = useState<QuestionPlan | null>(null);
   const plan = pendingPlan ?? localPending;
   const questions = plan?.questions ?? [];
 
   const [isSent, setIsSent] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [draft]);
 
   const send = async () => {
     if (!draft.trim() || disabled) return;
     setIsSent(true);
-    await onSubmit(draft, anchor);
+    await onSubmit(draft);
     setTimeout(() => setIsSent(false), 2000);
   };
 
@@ -136,15 +141,6 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
           </div>
         ) : null}
 
-        {anchor ? (
-          <div className="mb-2 flex items-start gap-3 rounded-md border border-line bg-mist px-3 py-2 text-sm text-muted">
-            <p className="line-clamp-2 min-w-0 flex-1">{anchor}</p>
-            <button className="shrink-0 text-focus" type="button" onClick={onAnchorClear}>
-              移除
-            </button>
-          </div>
-        ) : null}
-
         <div className="grid grid-cols-[auto_1fr_auto] items-end gap-2">
           <button
             className="grid h-11 place-items-center px-3 rounded-md border border-line bg-paper text-sm hover:border-focus disabled:opacity-35 transition-colors focus:bg-mist active:bg-mist"
@@ -156,6 +152,7 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
             ↑ 返回上层
           </button>
           <textarea
+            ref={textareaRef}
             className="max-h-36 min-h-11 resize-none rounded-md border border-line bg-paper px-4 py-3 text-sm leading-6 outline-none focus:border-focus"
             placeholder={answerState.status === "decomposing" ? "正在拆解问题..." : "继续追问... (Cmd/Ctrl + Enter 发送)"}
             value={draft}

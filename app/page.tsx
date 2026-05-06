@@ -26,7 +26,6 @@ function Workspace() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [draft, setDraft] = useState("");
-  const [anchor, setAnchor] = useState<string | undefined>();
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const path = useMemo(() => (focusId ? getPath(focusId) : []), [focusId, getPath]);
@@ -110,10 +109,9 @@ function Workspace() {
               scrollRefs.current[id] = element;
             }}
             onQuote={(text, mode) => {
-              setAnchor(text);
-              const prefix = mode === "explain" ? "解释这句话：" : mode === "expand" ? "展开讲讲：" : "";
+              const prefix = mode === "explain" ? "解释这句话：" : mode === "expand" ? "展开讲讲：" : "我对此的疑问：";
               setDraft((prev) => {
-                const addition = `> ${text}\n\n${prefix}`;
+                const addition = `> ${text}\n${prefix}`;
                 return prev ? `${prev}\n\n${addition}` : addition;
               });
             }}
@@ -124,14 +122,11 @@ function Workspace() {
       </main>
       <Composer
         draft={draft}
-        anchor={anchor}
         disabled={answerState.status === "streaming"}
         onDraftChange={setDraft}
-        onAnchorClear={() => setAnchor(undefined)}
-        onSubmit={async (query, nextAnchor) => {
-          await askQuestion(query, nextAnchor);
+        onSubmit={async (query) => {
+          await askQuestion(query, undefined);
           setDraft("");
-          setAnchor(undefined);
         }}
       />
     </div>

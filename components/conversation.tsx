@@ -44,7 +44,7 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-normal text-muted">{node.parentId ? "追问" : "总览"}</p>
-              <h2 className="mt-1 break-words text-lg font-semibold leading-7">{node.userQuery}</h2>
+              <h2 className="mt-1 break-words text-lg font-semibold leading-7 whitespace-pre-wrap">{node.userQuery}</h2>
               {node.anchorText ? (
                 <blockquote className="mt-3 border-l-2 border-focus bg-mist px-3 py-2 text-sm leading-6 text-muted">
                   {node.anchorText}
@@ -90,13 +90,13 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
           className="fixed z-50 flex -translate-x-1/2 -translate-y-full overflow-hidden rounded-md border border-line bg-white shadow-soft"
           style={{ left: selection.x, top: selection.y }}
         >
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => onQuote(selection.text, "ask")}>
+          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "ask"); setSelection(null); }}>
             追问
           </button>
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => onQuote(selection.text, "explain")}>
+          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "explain"); setSelection(null); }}>
             解释
           </button>
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => onQuote(selection.text, "expand")}>
+          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "expand"); setSelection(null); }}>
             展开
           </button>
         </div>
