@@ -34,20 +34,28 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
                 <p className="text-sm font-medium">Question Planner 识别到 {questions.length} 个疑惑点</p>
                 <p className="mt-1 text-xs leading-5 text-muted">{plan?.summary || "我会按更适合学习的顺序帮你逐个追问。"}</p>
               </div>
-              <button
-                className="text-xs text-muted hover:text-ink"
-                type="button"
-                onClick={() => {
-                  setPendingPlan(null);
-                  setLocalPending(null);
-                }}
-              >
-                取消
-              </button>
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                <button className="rounded border border-line bg-white px-2 py-1 text-xs text-muted hover:text-ink" type="button" onClick={() => updatePlan(questions.map((item) => ({ ...item, selected: true })))}>
+                  全选
+                </button>
+                <button className="rounded border border-line bg-white px-2 py-1 text-xs text-muted hover:text-ink" type="button" onClick={() => updatePlan(questions.map((item) => ({ ...item, selected: false })))}>
+                  清空
+                </button>
+                <button
+                  className="rounded border border-line bg-white px-2 py-1 text-xs text-muted hover:text-ink"
+                  type="button"
+                  onClick={() => {
+                    setPendingPlan(null);
+                    setLocalPending(null);
+                  }}
+                >
+                  取消
+                </button>
+              </div>
             </div>
             <div className="space-y-2">
               {questions.map((question, index) => (
-                <div key={question.id} className="grid grid-cols-[auto_1fr] items-start gap-3 rounded-md border border-line bg-white p-3 text-sm">
+                <div key={question.id} className="grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-md border border-line bg-white p-3 text-sm">
                   <input
                     className="mt-3"
                     type="checkbox"
@@ -73,17 +81,51 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
                     />
                     {question.reason ? <p className="mt-2 text-xs leading-5 text-muted">{question.reason}</p> : null}
                   </div>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <button
+                      className="grid size-8 place-items-center rounded border border-line bg-paper text-xs text-muted hover:border-focus hover:text-focus disabled:opacity-30"
+                      type="button"
+                      title="上移"
+                      disabled={index === 0}
+                      onClick={() => updatePlan(moveQuestion(questions, index, index - 1))}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      className="grid size-8 place-items-center rounded border border-line bg-paper text-xs text-muted hover:border-focus hover:text-focus disabled:opacity-30"
+                      type="button"
+                      title="下移"
+                      disabled={index === questions.length - 1}
+                      onClick={() => updatePlan(moveQuestion(questions, index, index + 1))}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      className="grid size-8 place-items-center rounded border border-line bg-paper text-xs text-muted hover:border-red-300 hover:text-red-700 disabled:opacity-30"
+                      type="button"
+                      title="删除"
+                      disabled={questions.length <= 2}
+                      onClick={() => updatePlan(questions.filter((item) => item.id !== question.id))}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
-            <button
-              className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-              type="button"
-              disabled={disabled || !questions.some((question) => question.selected)}
-              onClick={() => confirmDecomposition(questions)}
-            >
-              顺序追问
-            </button>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:border-focus" type="button" onClick={() => updatePlan([...questions, createQuestion(questions.length)])}>
+                新增问题
+              </button>
+              <button
+                className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+                type="button"
+                disabled={disabled || !questions.some((question) => question.selected && question.query.trim())}
+                onClick={() => confirmDecomposition(renumberQuestions(questions))}
+              >
+                顺序追问
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -135,9 +177,34 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
   function updatePlan(nextQuestions: DecomposedQuestion[]) {
     const nextPlan = {
       summary: plan?.summary ?? "我会按更适合学习的顺序帮你逐个追问。",
-      questions: nextQuestions
+      questions: renumberQuestions(nextQuestions)
     };
     setPendingPlan(nextPlan);
     setLocalPending(nextPlan);
   }
+}
+
+function moveQuestion(questions: DecomposedQuestion[], from: number, to: number) {
+  const next = [...questions];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+function createQuestion(index: number): DecomposedQuestion {
+  return {
+    id: `manual-${Date.now()}-${index}`,
+    query: "",
+    anchor: null,
+    reason: "用户手动补充的问题。",
+    order: index + 1,
+    selected: true
+  };
+}
+
+function renumberQuestions(questions: DecomposedQuestion[]) {
+  return questions.map((question, index) => ({
+    ...question,
+    order: index + 1
+  }));
 }
