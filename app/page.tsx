@@ -26,6 +26,7 @@ function Workspace() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [draft, setDraft] = useState("");
+  const [autoDecompose, setAutoDecompose] = useState(false);
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const path = useMemo(() => (focusId ? getPath(focusId) : []), [focusId, getPath]);
@@ -123,9 +124,11 @@ function Workspace() {
       <Composer
         draft={draft}
         disabled={answerState.status === "streaming"}
+        autoDecompose={autoDecompose}
+        onAutoDecomposeChange={setAutoDecompose}
         onDraftChange={setDraft}
         onSubmit={async (query) => {
-          await askQuestion(query, undefined);
+          await askQuestion(query, undefined, !autoDecompose);
           setDraft("");
         }}
       />

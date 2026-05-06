@@ -7,11 +7,13 @@ import type { DecomposedQuestion, QuestionPlan } from "@/lib/types";
 interface ComposerProps {
   draft: string;
   disabled: boolean;
+  autoDecompose: boolean;
+  onAutoDecomposeChange(value: boolean): void;
   onDraftChange(value: string): void;
   onSubmit(query: string): Promise<void>;
 }
 
-export function Composer({ draft, disabled, onDraftChange, onSubmit }: ComposerProps) {
+export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange, onDraftChange, onSubmit }: ComposerProps) {
   const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState } = useLearning();
   const [localPending, setLocalPending] = useState<QuestionPlan | null>(null);
   const plan = pendingPlan ?? localPending;
@@ -140,6 +142,18 @@ export function Composer({ draft, disabled, onDraftChange, onSubmit }: ComposerP
             </div>
           </div>
         ) : null}
+
+        <div className="mb-2 flex items-center justify-between px-1">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted hover:text-ink transition-colors">
+            <input
+              type="checkbox"
+              checked={autoDecompose}
+              onChange={(e) => onAutoDecomposeChange(e.target.checked)}
+              className="rounded border-line text-focus focus:ring-focus"
+            />
+            开启智能拆解 (Question Planner)
+          </label>
+        </div>
 
         <div className="grid grid-cols-[auto_1fr_auto] items-end gap-2">
           <button
