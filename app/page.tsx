@@ -35,7 +35,7 @@ function Workspace() {
   const jumpToNode = (nodeId: string) => {
     setTimeout(() => {
       const target = scrollRefs.current[nodeId];
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   };
 
