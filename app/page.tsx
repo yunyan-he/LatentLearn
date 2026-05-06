@@ -6,19 +6,25 @@ import { Conversation } from "@/components/conversation";
 import { FocusTree } from "@/components/focus-tree";
 import { Intake } from "@/components/intake";
 import { TopBar } from "@/components/top-bar";
+import { HistorySidebar } from "@/components/history-sidebar";
 import { LearningProvider, useLearning } from "@/lib/learning-store";
 
 function Workspace() {
   const {
+    sessionId,
     document,
     nodes,
     focusId,
     getPath,
     initializeLearning,
+    loadSession,
+    clearSession,
     askQuestion,
     answerState
   } = useLearning();
   const [treeOpen, setTreeOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [draft, setDraft] = useState("");
   const [anchor, setAnchor] = useState<string | undefined>();
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -41,8 +47,42 @@ function Workspace() {
     return () => window.cancelAnimationFrame(frame);
   }, [answerState.status, activeResponseLength, focusId]);
 
+  useEffect(() => {
+    import("@/lib/storage").then(({ getLatestSession }) => {
+      getLatestSession().then((session) => {
+        if (session) {
+          loadSession(session.id);
+        }
+        setInitialLoad(false);
+      });
+    });
+  }, [loadSession]);
+
+  if (initialLoad) {
+    return <div className="flex h-dvh items-center justify-center bg-paper text-sm text-muted">加载中...</div>;
+  }
+
   if (!document || nodes.length === 0) {
-    return <Intake onStart={initializeLearning} busy={answerState.status === "streaming"} />;
+    return (
+      <>
+        <Intake onStart={initializeLearning} busy={answerState.status === "streaming"} />
+        <HistorySidebar
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          onSelect={loadSession}
+          onNew={clearSession}
+          currentSessionId={sessionId}
+        />
+        {/* We add a small history button to Intake if it has no top bar, or just let them open it via TopBar when they have a document. Wait, Intake doesn't have TopBar. Let's add a floating history button to Intake */}
+        <button
+          className="fixed left-6 top-6 grid size-10 place-items-center rounded-md border border-line bg-white text-muted hover:bg-mist hover:text-ink shadow-sm"
+          onClick={() => setHistoryOpen(true)}
+          title="历史记录"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"></path><path d="m3 9 2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9"></path><path d="M12 3v6"></path></svg>
+        </button>
+      </>
+    );
   }
 
   return (
@@ -52,6 +92,14 @@ function Workspace() {
         path={path}
         treeOpen={treeOpen}
         onToggleTree={() => setTreeOpen((value) => !value)}
+        onToggleHistory={() => setHistoryOpen(true)}
+      />
+      <HistorySidebar
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelect={loadSession}
+        onNew={clearSession}
+        currentSessionId={sessionId}
       />
       <main className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
         <section className="min-h-0 overflow-y-auto px-5 pb-6 pt-6 lg:px-10">

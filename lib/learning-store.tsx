@@ -5,14 +5,18 @@ import { createTopicDocument, parseMarkdownFile } from "@/lib/document";
 import { decomposeQuery, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
 import { parseOffTopic } from "@/lib/mock-ai";
 import type { AnswerState, BubbleNode, DecomposedQuestion, LearningDocument, QuestionPlan } from "@/lib/types";
+import { saveSession, getSession, type LearningSession } from "@/lib/storage";
 
 interface LearningStore {
+  sessionId: string | null;
   document: LearningDocument | null;
   nodes: BubbleNode[];
   focusId: string | null;
   answerState: AnswerState;
   pendingPlan: QuestionPlan | null;
   initializeLearning(input: { kind: "file"; name: string; content: string } | { kind: "topic"; topic: string }): Promise<void>;
+  loadSession(id: string): Promise<void>;
+  clearSession(): void;
   askQuestion(query: string, anchorText?: string, skipDecomposition?: boolean): Promise<void>;
   confirmDecomposition(questions: DecomposedQuestion[]): Promise<void>;
   setPendingPlan(plan: QuestionPlan | null): void;
@@ -27,11 +31,24 @@ interface LearningStore {
 const LearningContext = createContext<LearningStore | null>(null);
 
 export function LearningProvider({ children }: { children: React.ReactNode }) {
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [document, setDocument] = useState<LearningDocument | null>(null);
   const [nodes, setNodes] = useState<BubbleNode[]>([]);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [answerState, setAnswerState] = useState<AnswerState>({ status: "idle" });
   const [pendingPlan, setPendingPlan] = useState<QuestionPlan | null>(null);
+
+  useEffect(() => {
+    if (sessionId && document && nodes.length > 0) {
+      saveSession({
+        id: sessionId,
+        document,
+        nodes,
+        focusId,
+        updatedAt: Date.now()
+      }).catch(console.error);
+    }
+  }, [sessionId, document, nodes, focusId]);
 
   const getNode = useCallback((nodeId: string) => nodes.find((node) => node.id === nodeId), [nodes]);
 
@@ -71,6 +88,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   const initializeLearning: LearningStore["initializeLearning"] = useCallback(async (input) => {
     const nextDocument = input.kind === "file" ? parseMarkdownFile(input.name, input.content) : createTopicDocument(input.topic);
     const rootId = createId();
+    const newSessionId = createId();
     const root: BubbleNode = {
       id: rootId,
       parentId: null,
@@ -82,6 +100,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       children: []
     };
 
+    setSessionId(newSessionId);
     setDocument(nextDocument);
     setNodes([root]);
     setFocusId(rootId);
@@ -98,6 +117,27 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     }
     setAnswerState({ status: "idle" });
   }, [updateNode]);
+
+  const loadSession = useCallback(async (id: string) => {
+    const session = await getSession(id);
+    if (session) {
+      setSessionId(session.id);
+      setDocument(session.document);
+      setNodes(session.nodes);
+      setFocusId(session.focusId);
+      setAnswerState({ status: "idle" });
+      setPendingPlan(null);
+    }
+  }, []);
+
+  const clearSession = useCallback(() => {
+    setSessionId(null);
+    setDocument(null);
+    setNodes([]);
+    setFocusId(null);
+    setAnswerState({ status: "idle" });
+    setPendingPlan(null);
+  }, []);
 
   const askQuestion: LearningStore["askQuestion"] = useCallback(
     async (query, anchorText, skipDecomposition = false) => {
@@ -185,12 +225,15 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<LearningStore>(
     () => ({
+      sessionId,
       document,
       nodes,
       focusId,
       answerState,
       pendingPlan,
       initializeLearning,
+      loadSession,
+      clearSession,
       askQuestion,
       confirmDecomposition,
       setPendingPlan,
@@ -202,6 +245,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       getNode
     }),
     [
+      sessionId,
       answerState,
       askQuestion,
       confirmDecomposition,
@@ -210,6 +254,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       getNode,
       getPath,
       initializeLearning,
+      loadSession,
+      clearSession,
       jumpToLastOnTopic,
       jumpToParent,
       nodes,
