@@ -19,9 +19,13 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
   const plan = pendingPlan ?? localPending;
   const questions = plan?.questions ?? [];
 
+  const [isSent, setIsSent] = useState(false);
+
   const send = async () => {
     if (!draft.trim() || disabled) return;
+    setIsSent(true);
     await onSubmit(draft, anchor);
+    setTimeout(() => setIsSent(false), 2000);
   };
 
   return (
@@ -153,24 +157,24 @@ export function Composer({ draft, anchor, disabled, onDraftChange, onAnchorClear
           </button>
           <textarea
             className="max-h-36 min-h-11 resize-none rounded-md border border-line bg-paper px-4 py-3 text-sm leading-6 outline-none focus:border-focus"
-            placeholder={answerState.status === "decomposing" ? "正在拆解问题..." : "继续追问，Enter 发送"}
+            placeholder={answerState.status === "decomposing" ? "正在拆解问题..." : "继续追问... (Cmd/Ctrl + Enter 发送)"}
             value={draft}
             disabled={disabled}
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
                 void send();
               }
             }}
           />
           <button
-            className="h-11 rounded-md bg-ink px-5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-35"
+            className={`h-11 rounded-md px-5 text-sm font-medium text-white disabled:cursor-not-allowed transition-all ${isSent ? "bg-emerald-600 hover:bg-emerald-600 disabled:opacity-100" : "bg-ink disabled:opacity-35"}`}
             type="button"
-            disabled={disabled || !draft.trim()}
+            disabled={disabled || (!draft.trim() && !isSent)}
             onClick={() => void send()}
           >
-            发送
+            {isSent ? "已发送 ✓" : "发送"}
           </button>
         </div>
       </div>
