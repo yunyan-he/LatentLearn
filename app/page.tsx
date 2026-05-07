@@ -128,8 +128,8 @@ function Workspace() {
         onAutoDecomposeChange={setAutoDecompose}
         onDraftChange={setDraft}
         onSubmit={async (query) => {
-          await askQuestion(query, undefined, !autoDecompose);
           setDraft("");
+          void askQuestion(query, undefined, !autoDecompose);
         }}
       />
     </div>
