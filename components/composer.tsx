@@ -143,7 +143,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
           </div>
         ) : null}
 
-        <div className="mb-2 flex items-center justify-between px-1">
+        <div className="mb-2 flex items-center gap-1.5 px-1">
           <label className="flex cursor-pointer items-center gap-2 text-xs text-muted hover:text-ink transition-colors">
             <input
               type="checkbox"
@@ -153,6 +153,15 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
             />
             开启智能拆解 (Question Planner)
           </label>
+          <div className="group relative flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted/60 cursor-help hover:text-muted"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 z-50">
+              <div className="rounded-md border border-line bg-ink p-2.5 text-xs text-white shadow-lg leading-relaxed">
+                开启后，当你发送长段疑问时，AI 会自动帮你梳理逻辑，并拆解成多个子问题依次解答。默认关闭，适合简单的直接问答。
+                <svg className="absolute -bottom-1 left-1/2 h-2 w-4 -translate-x-1/2 text-ink" fill="currentColor" viewBox="0 0 24 12"><path d="M12 12L0 0h24z"></path></svg>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-[auto_1fr_auto] items-end gap-2">
