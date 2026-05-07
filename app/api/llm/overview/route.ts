@@ -5,8 +5,8 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const { document } = (await request.json()) as { document: LearningDocument };
-    return textStream(streamInitialOverview(document));
+    const { document, language } = (await request.json()) as { document: LearningDocument; language?: "en" | "zh" };
+    return textStream(streamInitialOverview(document, language));
   } catch (error) {
     return errorResponse(error);
   }

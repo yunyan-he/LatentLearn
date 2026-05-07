@@ -14,7 +14,7 @@ interface ConversationProps {
 }
 
 export function Conversation({ path, focusId, onJump, registerNode, onQuote }: ConversationProps) {
-  const { nodes, answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode, setFocus } = useLearning();
+  const { nodes, answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode, setFocus, language } = useLearning();
   const [selection, setSelection] = useState<{ text: string; x: number; y: number; nodeId: string } | null>(null);
 
   useEffect(() => {
@@ -45,7 +45,11 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <p className="text-xs font-medium uppercase tracking-normal text-muted">{node.parentId ? "追问" : "总览"}</p>
+                <p className="text-xs font-medium uppercase tracking-normal text-muted">
+                  {node.parentId 
+                    ? (language === "en" ? "Follow-up" : "追问") 
+                    : (language === "en" ? "Overview" : "总览")}
+                </p>
                 {node.batchId ? (() => {
                   const batchNodes = nodes.filter(n => n.batchId === node.batchId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
                   if (batchNodes.length > 1) {
@@ -58,9 +62,9 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
                           setFocus(nextNode.id);
                           onJump(nextNode.id);
                         }}
-                        title="查看下一关联问题"
+                        title={language === "en" ? "View next related question" : "查看下一关联问题"}
                       >
-                        关联问题 {idx + 1}/{batchNodes.length} ➔
+                        {language === "en" ? "Related Q" : "关联问题"} {idx + 1}/{batchNodes.length} ➔
                       </button>
                     )
                   }
@@ -79,14 +83,16 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
               type="button"
               onClick={() => toggleResolved(node.id)}
             >
-              {node.resolved ? "恢复" : "已理解"}
+              {node.resolved 
+                ? (language === "en" ? "Restore" : "恢复") 
+                : (language === "en" ? "Got it" : "已理解")}
             </button>
           </div>
           <div className="prose-answer text-[15px]" onMouseUp={() => captureSelection(node.id)}>
             {node.aiResponse ? (
               <MarkdownAnswer content={node.aiResponse} />
             ) : answerState.status === "streaming" && answerState.nodeId === node.id ? (
-              "正在组织讲解..."
+              language === "en" ? "Generating explanation..." : "正在组织讲解..."
             ) : null}
           </div>
           {answerState.status !== "streaming" || answerState.nodeId !== node.id ? (
@@ -95,10 +101,10 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
                 className="flex items-center gap-1.5 rounded border border-transparent px-2 py-1 text-xs text-muted transition-colors hover:border-line hover:bg-mist hover:text-ink"
                 type="button"
                 onClick={() => retryNode(node.id)}
-                title="重新生成"
+                title={language === "en" ? "Regenerate" : "重新生成"}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-                重试
+                {language === "en" ? "Retry" : "重试"}
               </button>
               {node.aiResponse ? <CopyButton text={node.aiResponse} /> : null}
             </div>
@@ -112,7 +118,7 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
                 onClick={stopStreaming}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-                停止生成
+                {language === "en" ? "Stop Generating" : "停止生成"}
               </button>
             </div>
           ) : null}
@@ -120,34 +126,53 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
             <div className="mt-5 rounded-md border border-line bg-paper p-4 text-sm text-muted">
               <p>{node.offTopicHint}</p>
               <button className="mt-3 text-sm font-medium text-focus" type="button" onClick={jumpToLastOnTopic}>
-                回到学习主线
+                {language === "en" ? "Back to core path" : "回到学习主线"}
               </button>
             </div>
           ) : null}
         </article>
       ))}
 
-      {selection ? (
-        <div
-          className="fixed z-50 flex -translate-x-1/2 -translate-y-full overflow-hidden rounded-md border border-line bg-white shadow-soft"
-          style={{ left: selection.x, top: selection.y }}
-        >
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "ask", selection.nodeId); setSelection(null); }}>
-            追问
-          </button>
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "explain", selection.nodeId); setSelection(null); }}>
-            解释
-          </button>
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "expand", selection.nodeId); setSelection(null); }}>
-            展开
-          </button>
-        </div>
-      ) : null}
+      {selection ? (() => {
+        const popupText = language === "en" ? {
+          ask: "Ask",
+          explain: "Explain",
+          expand: "Expand"
+        } : {
+          ask: "追问",
+          explain: "解释",
+          expand: "展开"
+        };
+        const handleAction = (mode: "ask" | "explain" | "expand") => {
+          onQuote(selection.text, mode, selection.nodeId);
+          setSelection(null);
+          if (typeof window !== "undefined") {
+            window.getSelection()?.removeAllRanges();
+          }
+        };
+        return (
+          <div
+            className="fixed z-50 flex -translate-x-1/2 -translate-y-full overflow-hidden rounded-md border border-line bg-white shadow-soft"
+            style={{ left: selection.x, top: selection.y }}
+          >
+            <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => handleAction("ask")}>
+              {popupText.ask}
+            </button>
+            <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => handleAction("explain")}>
+              {popupText.explain}
+            </button>
+            <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => handleAction("expand")}>
+              {popupText.expand}
+            </button>
+          </div>
+        );
+      })() : null}
     </div>
   );
 }
 
 function CopyButton({ text }: { text: string }) {
+  const { language } = useLearning();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -164,17 +189,17 @@ function CopyButton({ text }: { text: string }) {
     <button
       onClick={handleCopy}
       className="flex items-center gap-1.5 rounded border border-transparent px-2 py-1 text-xs text-muted transition-colors hover:border-line hover:bg-mist hover:text-ink"
-      title="复制内容"
+      title={language === "en" ? "Copy content" : "复制内容"}
     >
       {copied ? (
         <>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          已复制
+          {language === "en" ? "Copied" : "已复制"}
         </>
       ) : (
         <>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 20 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          复制
+          {language === "en" ? "Copy" : "复制"}
         </>
       )}
     </button>

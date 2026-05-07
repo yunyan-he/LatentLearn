@@ -14,6 +14,8 @@ interface LearningStore {
   focusId: string | null;
   answerState: AnswerState;
   pendingPlan: QuestionPlan | null;
+  language: "en" | "zh";
+  setLanguage(lang: "en" | "zh"): void;
   initializeLearning(input: { kind: "file"; name: string; content: string } | { kind: "topic"; topic: string }): Promise<void>;
   loadSession(id: string): Promise<void>;
   clearSession(): void;
@@ -39,7 +41,24 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [answerState, setAnswerState] = useState<AnswerState>({ status: "idle" });
   const [pendingPlan, setPendingPlan] = useState<QuestionPlan | null>(null);
+  const [language, setLanguage] = useState<"en" | "zh">("en");
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("latentlearn_lang") as "en" | "zh" | null;
+      if (saved === "en" || saved === "zh") {
+        setLanguage(saved);
+      }
+    }
+  }, []);
+
+  const handleSetLanguage = useCallback((lang: "en" | "zh") => {
+    setLanguage(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("latentlearn_lang", lang);
+    }
+  }, []);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -102,7 +121,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     const root: BubbleNode = {
       id: rootId,
       parentId: null,
-      userQuery: "总览",
+      userQuery: language === "en" ? "Overview" : "总览",
       aiResponse: "",
       isOffTopic: false,
       resolved: false,
@@ -114,13 +133,13 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     setDocument(nextDocument);
     setNodes([root]);
     setFocusId(rootId);
-    setAnswerState({ status: "streaming", nodeId: rootId, label: "正在生成总览" });
+    setAnswerState({ status: "streaming", nodeId: rootId, label: language === "en" ? "Generating Overview..." : "正在生成总览" });
 
     abortControllerRef.current = new AbortController();
 
     let response = "";
     try {
-      for await (const chunk of streamInitialOverview(nextDocument, { signal: abortControllerRef.current.signal })) {
+      for await (const chunk of streamInitialOverview(nextDocument, { signal: abortControllerRef.current.signal, language })) {
         response += chunk;
         updateNode(rootId, { aiResponse: response });
       }
@@ -130,7 +149,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setAnswerState({ status: "idle" });
-  }, [updateNode]);
+  }, [updateNode, language]);
 
   const loadSession = useCallback(async (id: string) => {
     const session = await getSession(id);
@@ -171,7 +190,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
 
       if (!skipDecomposition) {
         setAnswerState({ status: "decomposing" });
-        const plan = await safeDecompose(document, cleaned);
+        const plan = await safeDecompose(document, cleaned, language);
         setAnswerState({ status: "idle" });
         if (plan.questions.length > 1) {
           setPendingPlan(plan);
@@ -194,14 +213,14 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       };
       appendChild(parentId, node);
       setFocusId(nodeId);
-      setAnswerState({ status: "streaming", nodeId, label: "正在回答" });
+      setAnswerState({ status: "streaming", nodeId, label: language === "en" ? "Answering..." : "正在回答" });
 
       abortControllerRef.current = new AbortController();
 
       let raw = "";
       const path = getPath(parentId);
       try {
-        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, { signal: abortControllerRef.current.signal })) {
+        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, { signal: abortControllerRef.current.signal, language })) {
           raw += chunk;
           const parsed = parseOffTopic(raw);
           updateNode(nodeId, {
@@ -217,7 +236,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       }
       setAnswerState({ status: "idle" });
     },
-    [appendChild, document, focusId, getPath, updateNode]
+    [appendChild, document, focusId, getPath, updateNode, language, getNode]
   );
 
   const retryNode = useCallback(async (nodeId: string) => {
@@ -228,20 +247,20 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     stopStreaming();
 
     setFocusId(nodeId);
-    setAnswerState({ status: "streaming", nodeId, label: "正在重新生成..." });
+    setAnswerState({ status: "streaming", nodeId, label: language === "en" ? "Regenerating..." : "正在重新生成..." });
     updateNode(nodeId, { aiResponse: "", isOffTopic: false, offTopicHint: undefined });
 
     abortControllerRef.current = new AbortController();
     let response = "";
     try {
       if (node.parentId === null) {
-        for await (const chunk of streamInitialOverview(document, { signal: abortControllerRef.current.signal })) {
+        for await (const chunk of streamInitialOverview(document, { signal: abortControllerRef.current.signal, language })) {
           response += chunk;
           updateNode(nodeId, { aiResponse: response });
         }
       } else {
         const path = getPath(node.parentId);
-        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, { signal: abortControllerRef.current.signal })) {
+        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, { signal: abortControllerRef.current.signal, language })) {
           response += chunk;
           const parsed = parseOffTopic(response);
           updateNode(nodeId, { aiResponse: parsed.answer, isOffTopic: parsed.isOffTopic, offTopicHint: parsed.hint });
@@ -253,7 +272,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setAnswerState({ status: "idle" });
-  }, [document, getNode, getPath, updateNode, stopStreaming]);
+  }, [document, getNode, getPath, updateNode, stopStreaming, language]);
 
   const confirmDecomposition = useCallback(
     async (questions: DecomposedQuestion[]) => {
@@ -306,6 +325,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       focusId,
       answerState,
       pendingPlan,
+      language,
+      setLanguage: handleSetLanguage,
       initializeLearning,
       loadSession,
       clearSession,
@@ -339,7 +360,9 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       jumpToParent,
       nodes,
       pendingPlan,
-      toggleResolved
+      toggleResolved,
+      language,
+      handleSetLanguage
     ]
   );
 
@@ -356,12 +379,12 @@ function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function safeDecompose(document: LearningDocument, query: string) {
+async function safeDecompose(document: LearningDocument, query: string, language: "en" | "zh") {
   try {
-    return await decomposeQuery(document, query);
+    return await decomposeQuery(document, query, language);
   } catch {
     return {
-      summary: "拆解失败，直接按原问题回答。",
+      summary: language === "en" ? "Decomposition failed, answering directly." : "拆解失败，直接按原问题回答。",
       questions: []
     };
   }

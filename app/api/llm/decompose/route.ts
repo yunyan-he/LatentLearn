@@ -5,11 +5,12 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const { document, query } = (await request.json()) as {
+    const { document, query, language } = (await request.json()) as {
       document: LearningDocument;
       query: string;
+      language?: "en" | "zh";
     };
-    const plan = await decomposeQuery(document, query);
+    const plan = await decomposeQuery(document, query, language);
     return Response.json(plan);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown LLM error.";

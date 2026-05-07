@@ -3,14 +3,16 @@ import { useLearning } from "@/lib/learning-store";
 import type { BubbleNode } from "@/lib/types";
 
 export function FocusTree({ open, onJump }: { open: boolean; onJump(nodeId: string): void }) {
-  const { nodes, focusId, setFocus, toggleResolved, getPath } = useLearning();
+  const { nodes, focusId, setFocus, toggleResolved, getPath, language } = useLearning();
   const roots = nodes.filter((node) => node.parentId === null);
   const pathIds = new Set(focusId ? getPath(focusId).map(n => n.id) : []);
 
   if (!open) {
     return (
       <aside className="hidden border-l border-line bg-white lg:block">
-        <div className="grid h-full place-items-center text-xs text-muted [writing-mode:vertical-rl]">焦点树已折叠</div>
+        <div className="grid h-full place-items-center text-xs text-muted [writing-mode:vertical-rl]">
+          {language === "en" ? "Focus tree collapsed" : "焦点树已折叠"}
+        </div>
       </aside>
     );
   }
@@ -18,8 +20,10 @@ export function FocusTree({ open, onJump }: { open: boolean; onJump(nodeId: stri
   return (
     <aside className="mobile-drawer hidden min-h-0 overflow-y-auto border-l border-line bg-white p-4 lg:block">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">焦点树</h2>
-        <p className="text-xs text-muted">{nodes.length} 个节点</p>
+        <h2 className="text-sm font-semibold">{language === "en" ? "Focus Tree" : "焦点树"}</h2>
+        <p className="text-xs text-muted">
+          {language === "en" ? `${nodes.length} nodes` : `${nodes.length} 个节点`}
+        </p>
       </div>
       <div className="space-y-1">
         {roots.map((node) => (
@@ -49,6 +53,7 @@ function TreeNode({
   onJump(nodeId: string): void;
   onResolve(nodeId: string): void;
 }) {
+  const { language } = useLearning();
   const children = node.children.map((id) => allNodes.find((item) => item.id === id)).filter(Boolean) as BubbleNode[];
   const active = node.id === focusId;
   const inPath = pathIds.has(node.id);
@@ -71,7 +76,7 @@ function TreeNode({
           style={{ visibility: children.length ? "visible" : "hidden" }}
           type="button"
           onClick={() => setExpanded(!expanded)}
-          title={expanded ? "收起" : "展开"}
+          title={expanded ? (language === "en" ? "Collapse" : "收起") : (language === "en" ? "Expand" : "展开")}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
@@ -99,7 +104,9 @@ function TreeNode({
           type="button"
           onClick={() => onResolve(node.id)}
         >
-          {node.resolved ? "恢复" : "懂了"}
+          {node.resolved 
+            ? (language === "en" ? "Restore" : "恢复") 
+            : (language === "en" ? "Got it" : "懂了")}
         </button>
       </div>
       {expanded && children.length > 0 ? (

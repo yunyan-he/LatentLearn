@@ -1,21 +1,50 @@
 "use client";
 
 import { ChangeEvent, DragEvent, useRef, useState } from "react";
+import { useLearning } from "@/lib/learning-store";
 
 interface IntakeProps {
   busy: boolean;
   onStart(input: { kind: "file"; name: string; content: string } | { kind: "topic"; topic: string }): void;
 }
 
+const translations = {
+  en: {
+    tagline: "LatentLearn",
+    title: "Grow questions into a tree of understanding",
+    desc: "Upload Markdown or enter a topic to get a systematic overview, then dive deeper on every point of uncertainty.",
+    dragTitle: "Drag and drop Markdown file",
+    dragSubtitle: "or click to choose local .md file",
+    topicLabel: "Or enter a topic directly",
+    placeholder: "e.g. Transformer Attention Mechanism",
+    startButton: "Start Learning",
+    onlyMarkdown: "Currently only Markdown (.md) files are supported."
+  },
+  zh: {
+    tagline: "LatentLearn",
+    title: "把追问长成一棵理解树",
+    desc: "上传 Markdown 或输入一个主题，先获得系统梳理，再沿着每一次不确定继续挖。",
+    dragTitle: "拖入 Markdown 文件",
+    dragSubtitle: "或点击选择本地 .md 文件",
+    topicLabel: "直接输入主题",
+    placeholder: "我想学 Transformer 的注意力机制",
+    startButton: "开始学习",
+    onlyMarkdown: "目前只支持 Markdown (.md) 文件。"
+  }
+};
+
 export function Intake({ busy, onStart }: IntakeProps) {
+  const { language, setLanguage } = useLearning();
   const inputRef = useRef<HTMLInputElement>(null);
   const [topic, setTopic] = useState("");
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
 
+  const t = translations[language];
+
   const readFile = async (file: File) => {
     if (!file.name.endsWith(".md")) {
-      setError("目前 MVP 只支持 Markdown 文件。");
+      setError(t.onlyMarkdown);
       return;
     }
     setError("");
@@ -35,13 +64,25 @@ export function Intake({ busy, onStart }: IntakeProps) {
   };
 
   return (
-    <main className="flex min-h-dvh bg-paper px-5 py-5 text-ink">
+    <main className="relative flex min-h-dvh bg-paper px-5 py-5 text-ink">
+      {/* Floating Language Switcher */}
+      <div className="absolute right-6 top-6 z-10 flex items-center gap-2">
+        <button
+          onClick={() => setLanguage(language === "en" ? "zh" : "en")}
+          className="flex items-center gap-1.5 rounded-full border border-line bg-white/80 px-3 py-1.5 text-xs font-semibold text-muted hover:bg-mist hover:text-ink transition-all shadow-sm"
+          title={language === "en" ? "Switch to Chinese" : "切换至英文"}
+        >
+          <span>🌐</span>
+          <span>{language === "en" ? "English" : "中文"}</span>
+        </button>
+      </div>
+
       <section className="mx-auto flex w-full max-w-5xl flex-col justify-center gap-8">
         <div className="max-w-3xl">
-          <p className="mb-3 text-sm font-medium text-focus">LatentLearn</p>
-          <h1 className="text-4xl font-semibold leading-tight tracking-normal text-ink md:text-6xl">把追问长成一棵理解树</h1>
+          <p className="mb-3 text-sm font-medium text-focus">{t.tagline}</p>
+          <h1 className="text-4xl font-semibold leading-tight tracking-normal text-ink md:text-6xl">{t.title}</h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted">
-            上传 Markdown 或输入一个主题，先获得系统梳理，再沿着每一次不确定继续挖。
+            {t.desc}
           </p>
         </div>
 
@@ -60,8 +101,8 @@ export function Intake({ busy, onStart }: IntakeProps) {
           >
             <input ref={inputRef} className="hidden" type="file" accept=".md,text/markdown" onChange={handleFileInput} />
             <div className="mb-5 grid size-12 place-items-center rounded-full border border-line text-xl">+</div>
-            <p className="text-base font-medium">拖入 Markdown 文件</p>
-            <p className="mt-2 text-sm text-muted">或点击选择本地 .md 文件</p>
+            <p className="text-base font-medium">{t.dragTitle}</p>
+            <p className="mt-2 text-sm text-muted">{t.dragSubtitle}</p>
           </div>
 
           <form
@@ -72,13 +113,13 @@ export function Intake({ busy, onStart }: IntakeProps) {
             }}
           >
             <label className="text-sm font-medium text-muted" htmlFor="topic">
-              直接输入主题
+              {t.topicLabel}
             </label>
             <textarea
               id="topic"
               data-testid="topic-input"
               className="mt-4 min-h-32 flex-1 resize-none rounded-md border border-line bg-paper p-4 text-lg outline-none focus:border-focus"
-              placeholder="我想学 Transformer 的注意力机制"
+              placeholder={t.placeholder}
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
               onKeyDown={(event) => {
@@ -94,7 +135,7 @@ export function Intake({ busy, onStart }: IntakeProps) {
               type="submit"
               disabled={busy || !topic.trim()}
             >
-              开始学习
+              {t.startButton}
             </button>
           </form>
         </div>

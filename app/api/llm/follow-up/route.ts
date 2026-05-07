@@ -5,13 +5,14 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const { document, path, query, anchorText } = (await request.json()) as {
+    const { document, path, query, anchorText, language } = (await request.json()) as {
       document: LearningDocument;
       path: BubbleNode[];
       query: string;
       anchorText?: string;
+      language?: "en" | "zh";
     };
-    return textStream(streamFollowUp(document, path, query, anchorText));
+    return textStream(streamFollowUp(document, path, query, anchorText, language));
   } catch (error) {
     return errorResponse(error);
   }

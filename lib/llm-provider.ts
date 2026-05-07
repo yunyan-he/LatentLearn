@@ -34,53 +34,62 @@ export function hasLlmApiKey() {
   return Boolean(process.env.LLM_API_KEY?.trim());
 }
 
-export function streamInitialOverview(document: LearningDocument) {
+export function streamInitialOverview(document: LearningDocument, language: "en" | "zh" = "en") {
+  const systemPrompt = language === "en"
+    ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English so that learners can easily ask follow-up questions."
+    : "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。";
   return streamLlmProvider([
     {
       role: "system",
-      content: "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。"
+      content: systemPrompt
     },
     {
       role: "user",
-      content: buildInitialPrompt(document)
+      content: buildInitialPrompt(document, language)
     }
   ]);
 }
 
-export function streamFollowUp(document: LearningDocument, path: BubbleNode[], query: string, anchorText?: string) {
+export function streamFollowUp(document: LearningDocument, path: BubbleNode[], query: string, anchorText?: string, language: "en" | "zh" = "en") {
+  const systemPrompt = language === "en"
+    ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English. Allow the user to explore off-topic questions, but append a polite and gentle off-topic hint starting with [OFFTOPIC] at the end."
+    : "你是 LatentLearn 的学习导师。允许用户探索跑偏问题，但需要按提示词约定输出 [OFFTOPIC] 标记。";
   return streamLlmProvider([
     {
       role: "system",
-      content: "你是 LatentLearn 的学习导师。允许用户探索跑偏问题，但需要按提示词约定输出 [OFFTOPIC] 标记。"
+      content: systemPrompt
     },
     {
       role: "user",
-      content: buildFollowUpContext(document, path, query, anchorText)
+      content: buildFollowUpContext(document, path, query, anchorText, language)
     }
   ]);
 }
 
-export async function decomposeQuery(document: LearningDocument, query: string): Promise<QuestionPlan> {
+export async function decomposeQuery(document: LearningDocument, query: string, language: "en" | "zh" = "en"): Promise<QuestionPlan> {
+  const systemPrompt = language === "en"
+    ? "You only output valid JSON, no Markdown formatting, no extra explanation."
+    : "你只输出有效 JSON，不要 Markdown，不要解释。";
   const content = await completeLlmProvider([
     {
       role: "system",
-      content: "你只输出有效 JSON，不要 Markdown，不要解释。"
+      content: systemPrompt
     },
     {
       role: "user",
-      content: buildDecompositionContext(document, query)
+      content: buildDecompositionContext(document, query, language)
     }
   ]);
   const parsed = parseDecomposition(content);
   if (!parsed.decomposed || parsed.questions.length < 2) {
     return {
-      summary: parsed.summary || "这是一个单一问题，直接回答更合适。",
+      summary: parsed.summary || (language === "en" ? "This is a single question, better to answer directly." : "这是一个单一问题，直接回答更合适。"),
       questions: []
     };
   }
 
   return {
-    summary: parsed.summary || `我识别到 ${parsed.questions.length} 个可以顺序讲解的疑惑点。`,
+    summary: parsed.summary || (language === "en" ? `I identified ${parsed.questions.length} points of confusion to explain sequentially.` : `我识别到 ${parsed.questions.length} 个可以顺序讲解的疑惑点。`),
     questions: parsed.questions.slice(0, 6).map((question, index) => ({
       id: `dq-${Date.now()}-${index}`,
       query: question.query,

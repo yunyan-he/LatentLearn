@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getAllSessions, deleteSession, type SessionMetadata } from "@/lib/storage";
+import { useLearning } from "@/lib/learning-store";
 
 interface HistorySidebarProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface HistorySidebarProps {
 }
 
 export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionId }: HistorySidebarProps) {
+  const { language } = useLearning();
   const [sessions, setSessions] = useState<SessionMetadata[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +37,10 @@ export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionI
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!confirm("确定要删除这个对话吗？")) return;
+    const confirmMsg = language === "en" 
+      ? "Are you sure you want to delete this conversation?" 
+      : "确定要删除这个对话吗？";
+    if (!confirm(confirmMsg)) return;
     await deleteSession(id);
     if (id === currentSessionId) {
       onNew();
@@ -51,7 +56,7 @@ export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionI
       <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity" onClick={onClose} />
       <aside className="fixed bottom-0 left-0 top-0 z-50 flex w-80 flex-col border-r border-line bg-paper shadow-2xl transition-transform">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="text-sm font-semibold">历史对话</h2>
+          <h2 className="text-sm font-semibold">{language === "en" ? "History" : "历史对话"}</h2>
           <button className="grid size-8 place-items-center rounded-md hover:bg-mist" onClick={onClose}>
             ✕
           </button>
@@ -65,13 +70,13 @@ export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionI
             }}
             className="mb-4 flex w-full items-center justify-center gap-2 rounded-md border border-dashed border-focus bg-focus/5 px-4 py-3 text-sm font-medium text-focus hover:bg-focus/10"
           >
-            + 开启新学习
+            {language === "en" ? "+ Start New Learning" : "+ 开启新学习"}
           </button>
 
           {loading ? (
-            <div className="p-4 text-center text-xs text-muted">加载中...</div>
+            <div className="p-4 text-center text-xs text-muted">{language === "en" ? "Loading..." : "加载中..."}</div>
           ) : sessions.length === 0 ? (
-            <div className="p-4 text-center text-xs text-muted">暂无历史记录</div>
+            <div className="p-4 text-center text-xs text-muted">{language === "en" ? "No history records" : "暂无历史记录"}</div>
           ) : (
             <div className="space-y-1">
               {sessions.map((session) => (
@@ -91,13 +96,13 @@ export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionI
                     {session.title}
                   </p>
                   <p className="mt-1 text-xs text-muted">
-                    {new Date(session.updatedAt).toLocaleString()}
+                    {new Date(session.updatedAt).toLocaleString(language === "en" ? "en-US" : "zh-CN")}
                   </p>
                   
                   <button
                     onClick={(e) => handleDelete(e, session.id)}
                     className="absolute right-2 top-3 hidden rounded p-1 text-muted hover:bg-white hover:text-red-600 group-hover:block"
-                    title="删除"
+                    title={language === "en" ? "Delete" : "删除"}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                   </button>

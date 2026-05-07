@@ -128,7 +128,11 @@ function Workspace() {
         onNew={clearSession}
         currentSessionId={sessionId}
       />
-      <main className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_340px]">
+      <main className={`grid min-h-0 flex-1 grid-cols-1 overflow-hidden transition-all duration-300 ${
+        treeOpen 
+          ? "lg:grid-cols-[minmax(0,1fr)_340px]" 
+          : "lg:grid-cols-[minmax(0,1fr)_48px]"
+      }`}>
         <section className="min-h-0 overflow-y-auto px-5 pb-6 pt-6 lg:px-10">
           <Conversation
             path={path}

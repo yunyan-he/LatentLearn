@@ -1,7 +1,7 @@
 import type { BubbleNode, LearningDocument, QuestionPlan } from "@/lib/types";
 
-export async function* streamInitialOverview(document: LearningDocument, options?: { signal?: AbortSignal }): AsyncGenerator<string> {
-  yield* streamFromApi("/api/llm/overview", { document }, options);
+export async function* streamInitialOverview(document: LearningDocument, options?: { signal?: AbortSignal; language?: "en" | "zh" }): AsyncGenerator<string> {
+  yield* streamFromApi("/api/llm/overview", { document, language: options?.language }, options);
 }
 
 export async function* streamFollowUp(
@@ -9,18 +9,18 @@ export async function* streamFollowUp(
   path: BubbleNode[],
   query: string,
   anchorText?: string,
-  options?: { signal?: AbortSignal }
+  options?: { signal?: AbortSignal; language?: "en" | "zh" }
 ): AsyncGenerator<string> {
-  yield* streamFromApi("/api/llm/follow-up", { document, path, query, anchorText }, options);
+  yield* streamFromApi("/api/llm/follow-up", { document, path, query, anchorText, language: options?.language }, options);
 }
 
-export async function decomposeQuery(document: LearningDocument, query: string): Promise<QuestionPlan> {
+export async function decomposeQuery(document: LearningDocument, query: string, language?: "en" | "zh"): Promise<QuestionPlan> {
   const response = await fetch("/api/llm/decompose", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ document, query })
+    body: JSON.stringify({ document, query, language })
   });
 
   if (!response.ok) throw new Error(await response.text());
