@@ -1,16 +1,17 @@
 import type { BubbleNode, LearningDocument, QuestionPlan } from "@/lib/types";
 
-export async function* streamInitialOverview(document: LearningDocument): AsyncGenerator<string> {
-  yield* streamFromApi("/api/llm/overview", { document });
+export async function* streamInitialOverview(document: LearningDocument, options?: { signal?: AbortSignal }): AsyncGenerator<string> {
+  yield* streamFromApi("/api/llm/overview", { document }, options);
 }
 
 export async function* streamFollowUp(
   document: LearningDocument,
   path: BubbleNode[],
   query: string,
-  anchorText?: string
+  anchorText?: string,
+  options?: { signal?: AbortSignal }
 ): AsyncGenerator<string> {
-  yield* streamFromApi("/api/llm/follow-up", { document, path, query, anchorText });
+  yield* streamFromApi("/api/llm/follow-up", { document, path, query, anchorText }, options);
 }
 
 export async function decomposeQuery(document: LearningDocument, query: string): Promise<QuestionPlan> {
@@ -26,13 +27,14 @@ export async function decomposeQuery(document: LearningDocument, query: string):
   return (await response.json()) as QuestionPlan;
 }
 
-async function* streamFromApi(path: string, body: unknown): AsyncGenerator<string> {
+async function* streamFromApi(path: string, body: unknown, options?: { signal?: AbortSignal }): AsyncGenerator<string> {
   const response = await fetch(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: options?.signal
   });
 
   if (!response.ok) throw new Error(await response.text());

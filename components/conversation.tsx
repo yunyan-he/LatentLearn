@@ -13,7 +13,7 @@ interface ConversationProps {
 }
 
 export function Conversation({ path, focusId, registerNode, onQuote }: ConversationProps) {
-  const { answerState, toggleResolved, jumpToLastOnTopic } = useLearning();
+  const { answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode } = useLearning();
   const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -66,13 +66,32 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
               "正在组织讲解..."
             ) : null}
           </div>
-          {node.aiResponse ? (
-            <div className="mt-2 flex justify-end">
-              <CopyButton text={node.aiResponse} />
+          {answerState.status !== "streaming" || answerState.nodeId !== node.id ? (
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                className="flex items-center gap-1.5 rounded border border-transparent px-2 py-1 text-xs text-muted transition-colors hover:border-line hover:bg-mist hover:text-ink"
+                type="button"
+                onClick={() => retryNode(node.id)}
+                title="重新生成"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                重试
+              </button>
+              {node.aiResponse ? <CopyButton text={node.aiResponse} /> : null}
             </div>
           ) : null}
           {answerState.status === "streaming" && answerState.nodeId === node.id ? (
-            <span className="mt-3 inline-block h-5 w-1 animate-pulse bg-focus align-bottom" />
+            <div className="mt-3 flex items-center gap-3">
+              <span className="inline-block h-5 w-1 animate-pulse bg-focus align-bottom" />
+              <button
+                className="flex items-center gap-1.5 rounded border border-line bg-paper px-2 py-1 text-xs text-muted hover:border-red-300 hover:text-red-700 transition-colors"
+                type="button"
+                onClick={stopStreaming}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                停止生成
+              </button>
+            </div>
           ) : null}
           {node.isOffTopic && node.offTopicHint ? (
             <div className="mt-5 rounded-md border border-line bg-paper p-4 text-sm text-muted">

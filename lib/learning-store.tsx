@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createTopicDocument, parseMarkdownFile } from "@/lib/document";
 import { decomposeQuery, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
 import { parseOffTopic } from "@/lib/mock-ai";
@@ -18,6 +18,8 @@ interface LearningStore {
   loadSession(id: string): Promise<void>;
   clearSession(): void;
   askQuestion(query: string, anchorText?: string, skipDecomposition?: boolean): Promise<void>;
+  stopStreaming(): void;
+  retryNode(nodeId: string): Promise<void>;
   confirmDecomposition(questions: DecomposedQuestion[]): Promise<void>;
   setPendingPlan(plan: QuestionPlan | null): void;
   setFocus(nodeId: string): void;
@@ -37,6 +39,14 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [answerState, setAnswerState] = useState<AnswerState>({ status: "idle" });
   const [pendingPlan, setPendingPlan] = useState<QuestionPlan | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const stopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (sessionId && document && nodes.length > 0) {
@@ -106,14 +116,18 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     setFocusId(rootId);
     setAnswerState({ status: "streaming", nodeId: rootId, label: "正在生成总览" });
 
+    abortControllerRef.current = new AbortController();
+
     let response = "";
     try {
-      for await (const chunk of streamInitialOverview(nextDocument)) {
+      for await (const chunk of streamInitialOverview(nextDocument, { signal: abortControllerRef.current.signal })) {
         response += chunk;
         updateNode(rootId, { aiResponse: response });
       }
     } catch (error) {
-      updateNode(rootId, { aiResponse: formatLlmError(error) });
+      if ((error as Error).name !== "AbortError") {
+        updateNode(rootId, { aiResponse: formatLlmError(error) });
+      }
     }
     setAnswerState({ status: "idle" });
   }, [updateNode]);
@@ -172,10 +186,12 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       setFocusId(nodeId);
       setAnswerState({ status: "streaming", nodeId, label: "正在回答" });
 
+      abortControllerRef.current = new AbortController();
+
       let raw = "";
       const path = getPath(parentId);
       try {
-        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText)) {
+        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, { signal: abortControllerRef.current.signal })) {
           raw += chunk;
           const parsed = parseOffTopic(raw);
           updateNode(nodeId, {
@@ -185,12 +201,49 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
           });
         }
       } catch (error) {
-        updateNode(nodeId, { aiResponse: formatLlmError(error) });
+        if ((error as Error).name !== "AbortError") {
+          updateNode(nodeId, { aiResponse: formatLlmError(error) });
+        }
       }
       setAnswerState({ status: "idle" });
     },
     [appendChild, document, focusId, getPath, updateNode]
   );
+
+  const retryNode = useCallback(async (nodeId: string) => {
+    if (!document) return;
+    const node = getNode(nodeId);
+    if (!node) return;
+
+    stopStreaming();
+
+    setFocusId(nodeId);
+    setAnswerState({ status: "streaming", nodeId, label: "正在重新生成..." });
+    updateNode(nodeId, { aiResponse: "", isOffTopic: false, offTopicHint: undefined });
+
+    abortControllerRef.current = new AbortController();
+    let response = "";
+    try {
+      if (node.parentId === null) {
+        for await (const chunk of streamInitialOverview(document, { signal: abortControllerRef.current.signal })) {
+          response += chunk;
+          updateNode(nodeId, { aiResponse: response });
+        }
+      } else {
+        const path = getPath(node.parentId);
+        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, { signal: abortControllerRef.current.signal })) {
+          response += chunk;
+          const parsed = parseOffTopic(response);
+          updateNode(nodeId, { aiResponse: parsed.answer, isOffTopic: parsed.isOffTopic, offTopicHint: parsed.hint });
+        }
+      }
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        updateNode(nodeId, { aiResponse: formatLlmError(error) });
+      }
+    }
+    setAnswerState({ status: "idle" });
+  }, [document, getNode, getPath, updateNode, stopStreaming]);
 
   const confirmDecomposition = useCallback(
     async (questions: DecomposedQuestion[]) => {
@@ -235,6 +288,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       loadSession,
       clearSession,
       askQuestion,
+      stopStreaming,
+      retryNode,
       confirmDecomposition,
       setPendingPlan,
       setFocus: setFocusId,
@@ -256,6 +311,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       initializeLearning,
       loadSession,
       clearSession,
+      stopStreaming,
+      retryNode,
       jumpToLastOnTopic,
       jumpToParent,
       nodes,

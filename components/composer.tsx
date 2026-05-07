@@ -14,7 +14,7 @@ interface ComposerProps {
 }
 
 export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange, onDraftChange, onSubmit }: ComposerProps) {
-  const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState } = useLearning();
+  const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState, stopStreaming } = useLearning();
   const [localPending, setLocalPending] = useState<QuestionPlan | null>(null);
   const plan = pendingPlan ?? localPending;
   const questions = plan?.questions ?? [];
@@ -179,14 +179,24 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
               }
             }}
           />
-          <button
-            className={`h-11 rounded-md px-5 text-sm font-medium text-white disabled:cursor-not-allowed transition-all ${isSent ? "bg-emerald-600 hover:bg-emerald-600 disabled:opacity-100" : "bg-ink disabled:opacity-35"}`}
-            type="button"
-            disabled={disabled || (!draft.trim() && !isSent)}
-            onClick={() => void send()}
-          >
-            {isSent ? "已发送 ✓" : "发送"}
-          </button>
+          {answerState.status === "streaming" ? (
+            <button
+              className="h-11 rounded-md bg-red-500 hover:bg-red-600 px-5 text-sm font-medium text-white transition-all"
+              type="button"
+              onClick={stopStreaming}
+            >
+              停止生成
+            </button>
+          ) : (
+            <button
+              className={`h-11 rounded-md px-5 text-sm font-medium text-white disabled:cursor-not-allowed transition-all ${isSent ? "bg-emerald-600 hover:bg-emerald-600 disabled:opacity-100" : "bg-ink disabled:opacity-35"}`}
+              type="button"
+              disabled={disabled || (!draft.trim() && !isSent)}
+              onClick={() => void send()}
+            >
+              {isSent ? "已发送 ✓" : "发送"}
+            </button>
+          )}
         </div>
       </div>
     </footer>
