@@ -1,0 +1,225 @@
+"""
+main.py — FastAPI 入口
+
+接口：
+  GET  /health              健康检查（含配置摘要）
+  POST /api/overview        生成初始总览（SSE 流式）
+  POST /api/followup        追问回答（SSE 流式）
+  POST /api/decompose       问题拆解（非流式，返回 QuestionPlan JSON）
+
+SSE 流式协议（与前端 streamFromApi 兼容）：
+  data: {"type": "chunk", "content": "..."}
+  data: {"type": "metadata", "is_off_topic": false, "off_topic_hint": null}
+  data: [DONE]
+
+thread_id：
+  每个请求从请求体的 thread_id 字段读取（前端传 sessionId）
+  作为 LangGraph config["configurable"]["thread_id"] 传入
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import uuid
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from agent.config import get_settings
+from agent.graph import graph
+from agent.state import AgentState, BubbleNode, LearningDocument
+
+# ─────────────────────────────────────────────────────────────────────────────
+# App 初始化
+# ─────────────────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="LatentLearn Agent API",
+    description="LangGraph-based AI agent backend for LatentLearn",
+    version="0.1.0",
+)
+
+cors_origins = os.environ.get("AGENT_CORS_ORIGINS", "http://localhost:3000").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in cors_origins],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Request / Response 模型
+# ─────────────────────────────────────────────────────────────────────────────
+
+class OverviewRequest(BaseModel):
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    document: dict
+    language: str = "en"
+
+
+class FollowUpRequest(BaseModel):
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    document: dict
+    conversation_path: list[dict] = []
+    user_query: str
+    anchor_text: str | None = None
+    language: str = "en"
+
+
+class DecomposeRequest(BaseModel):
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    document: dict
+    query: str
+    language: str = "en"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 工具函数
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _sse(data: str) -> str:
+    return f"data: {data}\n\n"
+
+
+def _make_config(thread_id: str) -> dict:
+    """生成 LangGraph 调用配置，thread_id 作为 checkpointer key"""
+    return {"configurable": {"thread_id": thread_id}}
+
+
+async def _stream_graph_response(initial_state: AgentState, thread_id: str):
+    """
+    通过 graph.astream_events() 监听 LLM 流式 token，
+    以 SSE 格式逐块推送给前端。
+    最终发送 metadata 事件（is_off_topic 等），然后 [DONE]。
+    """
+    config = _make_config(thread_id)
+    final_state: dict = {}
+
+    async for event in graph.astream_events(initial_state, config=config, version="v2"):
+        kind = event.get("event", "")
+
+        # LLM 流式 token
+        if kind == "on_chat_model_stream":
+            chunk = event.get("data", {}).get("chunk")
+            if chunk and hasattr(chunk, "content") and chunk.content:
+                yield _sse(json.dumps({"type": "chunk", "content": chunk.content}))
+
+        # 图执行完毕，取最终 state
+        elif kind == "on_chain_end" and event.get("name") == "LangGraph":
+            output = event.get("data", {}).get("output", {})
+            if isinstance(output, dict):
+                final_state = output
+
+    # 发送 metadata
+    yield _sse(json.dumps({
+        "type": "metadata",
+        "is_off_topic": final_state.get("is_off_topic", False),
+        "off_topic_hint": final_state.get("off_topic_hint"),
+    }))
+    yield _sse("[DONE]")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Routes
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+async def health():
+    settings = get_settings()
+    return {"status": "ok", **settings}
+
+
+@app.post("/api/overview")
+async def overview(req: OverviewRequest):
+    initial_state = AgentState(
+        thread_id=req.thread_id,
+        document=req.document,  # type: ignore[arg-type]
+        conversation_path=[],
+        user_query="",
+        anchor_text=None,
+        language=req.language,  # type: ignore[arg-type]
+        mode="overview",
+        decomposed_questions=[],
+        needs_decomposition=False,
+        answer="",
+        is_off_topic=False,
+        off_topic_hint=None,
+    )
+    return StreamingResponse(
+        _stream_graph_response(initial_state, req.thread_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/followup")
+async def followup(req: FollowUpRequest):
+    initial_state = AgentState(
+        thread_id=req.thread_id,
+        document=req.document,  # type: ignore[arg-type]
+        conversation_path=req.conversation_path,  # type: ignore[arg-type]
+        user_query=req.user_query,
+        anchor_text=req.anchor_text,
+        language=req.language,  # type: ignore[arg-type]
+        mode="followup",
+        decomposed_questions=[],
+        needs_decomposition=False,
+        answer="",
+        is_off_topic=False,
+        off_topic_hint=None,
+    )
+    return StreamingResponse(
+        _stream_graph_response(initial_state, req.thread_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.post("/api/decompose")
+async def decompose(req: DecomposeRequest):
+    """
+    非流式：运行 decomposer node，返回 QuestionPlan JSON。
+    与前端 decomposeQuery() 函数期望的格式完全兼容。
+    """
+    initial_state = AgentState(
+        thread_id=req.thread_id,
+        document=req.document,  # type: ignore[arg-type]
+        conversation_path=[],
+        user_query=req.query,
+        anchor_text=None,
+        language=req.language,  # type: ignore[arg-type]
+        mode="decompose",
+        decomposed_questions=[],
+        needs_decomposition=False,
+        answer="",
+        is_off_topic=False,
+        off_topic_hint=None,
+    )
+
+    config = _make_config(req.thread_id)
+    final_state = await graph.ainvoke(initial_state, config=config)
+
+    questions = final_state.get("decomposed_questions", [])
+    needs = final_state.get("needs_decomposition", False)
+
+    if not needs or len(questions) < 2:
+        lang = req.language
+        return {
+            "summary": "This is a single question, better to answer directly." if lang == "en"
+                       else "这是一个单一问题，直接回答更合适。",
+            "questions": [],
+        }
+
+    return {
+        "summary": (
+            f"I identified {len(questions)} points of confusion to explain sequentially."
+            if req.language == "en"
+            else f"我识别到 {len(questions)} 个可以顺序讲解的疑惑点。"
+        ),
+        "questions": questions,
+    }
