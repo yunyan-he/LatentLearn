@@ -1,11 +1,11 @@
-"use client";
-
+import { useState, useEffect } from "react";
 import { useLearning } from "@/lib/learning-store";
 import type { BubbleNode } from "@/lib/types";
 
 export function FocusTree({ open, onJump }: { open: boolean; onJump(nodeId: string): void }) {
-  const { nodes, focusId, setFocus, toggleResolved } = useLearning();
+  const { nodes, focusId, setFocus, toggleResolved, getPath } = useLearning();
   const roots = nodes.filter((node) => node.parentId === null);
+  const pathIds = new Set(focusId ? getPath(focusId).map(n => n.id) : []);
 
   if (!open) {
     return (
@@ -21,9 +21,9 @@ export function FocusTree({ open, onJump }: { open: boolean; onJump(nodeId: stri
         <h2 className="text-sm font-semibold">焦点树</h2>
         <p className="text-xs text-muted">{nodes.length} 个节点</p>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-1">
         {roots.map((node) => (
-          <TreeNode key={node.id} node={node} allNodes={nodes} focusId={focusId} depth={0} onFocus={setFocus} onJump={onJump} onResolve={toggleResolved} />
+          <TreeNode key={node.id} node={node} allNodes={nodes} focusId={focusId} pathIds={pathIds} depth={0} onFocus={setFocus} onJump={onJump} onResolve={toggleResolved} />
         ))}
       </div>
     </aside>
@@ -34,6 +34,7 @@ function TreeNode({
   node,
   allNodes,
   focusId,
+  pathIds,
   depth,
   onFocus,
   onJump,
@@ -42,6 +43,7 @@ function TreeNode({
   node: BubbleNode;
   allNodes: BubbleNode[];
   focusId: string | null;
+  pathIds: Set<string>;
   depth: number;
   onFocus(nodeId: string): void;
   onJump(nodeId: string): void;
@@ -49,58 +51,66 @@ function TreeNode({
 }) {
   const children = node.children.map((id) => allNodes.find((item) => item.id === id)).filter(Boolean) as BubbleNode[];
   const active = node.id === focusId;
+  const inPath = pathIds.has(node.id);
+  const [expanded, setExpanded] = useState(true);
+
+  useEffect(() => {
+    if (inPath) setExpanded(true);
+  }, [inPath]);
 
   return (
     <div className="relative">
       <div
-        className={`group flex items-center gap-2 rounded-md px-2 py-2 animate-grow ${active ? "bg-mist" : "hover:bg-paper"} ${
+        className={`group flex items-center gap-1.5 rounded-md px-2 py-1.5 animate-grow ${active ? "bg-mist" : "hover:bg-paper"} ${
           node.resolved ? "animate-fadeShrink opacity-55" : ""
         }`}
-        style={{ marginLeft: depth * 18 }}
+        style={{ marginLeft: depth * 14 }}
       >
         <button
-          className={`grid size-8 shrink-0 place-items-center rounded-full border text-xs ${
-            active
-              ? "border-focus bg-focus font-semibold text-white"
-              : node.resolved
-                ? "border-dashed border-muted text-muted"
-                : "border-line bg-white text-ink"
-          }`}
+          className={`grid size-5 shrink-0 place-items-center rounded text-muted hover:bg-line/50 transition-transform ${expanded ? "rotate-90" : ""}`}
+          style={{ visibility: children.length ? "visible" : "hidden" }}
           type="button"
-          title="切换焦点"
-          onClick={() => {
-            onFocus(node.id);
-            onJump(node.id);
-          }}
+          onClick={() => setExpanded(!expanded)}
+          title={expanded ? "收起" : "展开"}
         >
-          {node.children.length || "·"}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
+
         <button
-          className={`min-w-0 flex-1 truncate text-left text-sm ${active ? "font-semibold text-focus" : "text-ink"}`}
+          className={`min-w-0 flex-1 truncate text-left text-sm transition-colors ${active ? "font-semibold text-focus" : "text-ink hover:text-focus"}`}
           type="button"
           onClick={() => {
             onFocus(node.id);
             onJump(node.id);
           }}
+          title={node.userQuery}
         >
           {node.userQuery}
         </button>
+
+        {children.length > 0 && (
+          <span className="shrink-0 text-[10px] font-medium text-muted bg-paper px-1.5 rounded">
+            {children.length}
+          </span>
+        )}
+
         <button
-          className="hidden rounded px-2 py-1 text-xs text-muted hover:bg-white group-hover:block"
+          className="hidden shrink-0 rounded px-2 py-1 text-[11px] text-muted hover:bg-white group-hover:block transition-colors"
           type="button"
           onClick={() => onResolve(node.id)}
         >
           {node.resolved ? "恢复" : "懂了"}
         </button>
       </div>
-      {children.length ? (
-        <div className="tree-branch relative ml-4">
+      {expanded && children.length > 0 ? (
+        <div className="tree-branch relative ml-2 mt-1 space-y-1">
           {children.map((child) => (
             <TreeNode
               key={child.id}
               node={child}
               allNodes={allNodes}
               focusId={focusId}
+              pathIds={pathIds}
               depth={depth + 1}
               onFocus={onFocus}
               onJump={onJump}
