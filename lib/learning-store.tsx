@@ -17,7 +17,7 @@ interface LearningStore {
   initializeLearning(input: { kind: "file"; name: string; content: string } | { kind: "topic"; topic: string }): Promise<void>;
   loadSession(id: string): Promise<void>;
   clearSession(): void;
-  askQuestion(query: string, anchorText?: string, skipDecomposition?: boolean): Promise<void>;
+  askQuestion(query: string, anchorText?: string, skipDecomposition?: boolean, customParentId?: string, batchId?: string): Promise<void>;
   stopStreaming(): void;
   retryNode(nodeId: string): Promise<void>;
   confirmDecomposition(questions: DecomposedQuestion[]): Promise<void>;
@@ -154,10 +154,20 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const askQuestion: LearningStore["askQuestion"] = useCallback(
-    async (query, anchorText, skipDecomposition = false) => {
+    async (query, anchorText, skipDecomposition = false, customParentId, batchId) => {
       if (!document || !focusId) return;
       const cleaned = query.trim();
       if (!cleaned) return;
+
+      let parentId = customParentId;
+      if (!parentId && focusId) {
+        let current = getNode(focusId);
+        while (current && current.resolved && current.parentId) {
+          current = getNode(current.parentId);
+        }
+        parentId = current?.id || focusId;
+      }
+      if (!parentId) return;
 
       if (!skipDecomposition) {
         setAnswerState({ status: "decomposing" });
@@ -169,11 +179,11 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const parentId = focusId;
       const nodeId = createId();
       const node: BubbleNode = {
         id: nodeId,
         parentId,
+        batchId,
         anchorText,
         userQuery: cleaned,
         aiResponse: "",
@@ -251,11 +261,23 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       const selected = questions
         .filter((item) => item.selected && item.query.trim())
         .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));
+        
+      const batchId = createId();
+
       for (const question of selected) {
-        await askQuestion(question.query, question.anchor ?? undefined, true);
+        let customParentId: string | undefined;
+        if (question.anchor) {
+          const target = [...nodes].reverse().find(n => 
+             n.aiResponse.includes(question.anchor!) || 
+             n.userQuery.includes(question.anchor!) || 
+             (n.anchorText && n.anchorText.includes(question.anchor!))
+          );
+          if (target) customParentId = target.id;
+        }
+        await askQuestion(question.query, question.anchor ?? undefined, true, customParentId, batchId);
       }
     },
-    [askQuestion]
+    [askQuestion, nodes]
   );
 
   const toggleResolved = useCallback(

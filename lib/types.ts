@@ -22,6 +22,7 @@ export type LearningDocument =
 export interface BubbleNode {
   id: string;
   parentId: string | null;
+  batchId?: string;
   anchorText?: string;
   anchorSource?: string;
   userQuery: string;

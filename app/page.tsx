@@ -27,6 +27,7 @@ function Workspace() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [draft, setDraft] = useState("");
   const [autoDecompose, setAutoDecompose] = useState(false);
+  const [targetNodeIds, setTargetNodeIds] = useState<Set<string>>(new Set());
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const path = useMemo(() => (focusId ? getPath(focusId) : []), [focusId, getPath]);
@@ -57,6 +58,32 @@ function Workspace() {
       });
     });
   }, [loadSession]);
+
+  useEffect(() => {
+    if (!draft.trim()) {
+      setTargetNodeIds(new Set());
+    }
+  }, [draft]);
+
+  const findLCA = (nodeIds: string[]) => {
+    if (nodeIds.length === 0) return undefined;
+    if (nodeIds.length === 1) return nodeIds[0];
+    
+    const paths = nodeIds.map(id => getPath(id));
+    if (paths.some(p => p.length === 0)) return undefined;
+
+    let lca = paths[0][0];
+    for (let i = 0; i < paths[0].length; i++) {
+      const candidate = paths[0][i];
+      const isCommon = paths.every(path => path[i] && path[i].id === candidate.id);
+      if (isCommon) {
+        lca = candidate;
+      } else {
+        break;
+      }
+    }
+    return lca.id;
+  };
 
   if (initialLoad) {
     return <div className="flex h-dvh items-center justify-center bg-paper text-sm text-muted">加载中...</div>;
@@ -106,11 +133,17 @@ function Workspace() {
           <Conversation
             path={path}
             focusId={focusId}
+            onJump={jumpToNode}
             registerNode={(id, element) => {
               scrollRefs.current[id] = element;
             }}
-            onQuote={(text, mode) => {
+            onQuote={(text, mode, nodeId) => {
               const prefix = mode === "explain" ? "解释这句话：" : mode === "expand" ? "展开讲讲：" : "我对此的疑问：";
+              setTargetNodeIds((prev) => {
+                const next = new Set(prev);
+                next.add(nodeId);
+                return next;
+              });
               setDraft((prev) => {
                 const addition = `> ${text}\n${prefix}`;
                 return prev ? `${prev}\n\n${addition}` : addition;
@@ -128,8 +161,9 @@ function Workspace() {
         onAutoDecomposeChange={setAutoDecompose}
         onDraftChange={setDraft}
         onSubmit={async (query) => {
+          const customParentId = findLCA(Array.from(targetNodeIds));
           setDraft("");
-          void askQuestion(query, undefined, !autoDecompose);
+          void askQuestion(query, undefined, !autoDecompose, customParentId);
         }}
       />
     </div>

@@ -8,13 +8,14 @@ import type { BubbleNode } from "@/lib/types";
 interface ConversationProps {
   path: BubbleNode[];
   focusId: string | null;
+  onJump(nodeId: string): void;
   registerNode(id: string, element: HTMLElement | null): void;
-  onQuote(text: string, mode: "ask" | "explain" | "expand"): void;
+  onQuote(text: string, mode: "ask" | "explain" | "expand", nodeId: string): void;
 }
 
-export function Conversation({ path, focusId, registerNode, onQuote }: ConversationProps) {
-  const { answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode } = useLearning();
-  const [selection, setSelection] = useState<{ text: string; x: number; y: number } | null>(null);
+export function Conversation({ path, focusId, onJump, registerNode, onQuote }: ConversationProps) {
+  const { nodes, answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode, setFocus } = useLearning();
+  const [selection, setSelection] = useState<{ text: string; x: number; y: number; nodeId: string } | null>(null);
 
   useEffect(() => {
     const close = () => setSelection(null);
@@ -22,13 +23,13 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
     return () => window.removeEventListener("scroll", close, true);
   }, []);
 
-  const captureSelection = () => {
+  const captureSelection = (nodeId: string) => {
     const selected = window.getSelection();
     const text = selected?.toString().trim();
     if (!selected || !text || text.length < 2) return;
     const range = selected.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    setSelection({ text, x: rect.left + rect.width / 2, y: rect.top - 10 });
+    setSelection({ text, x: rect.left + rect.width / 2, y: rect.top - 10, nodeId });
   };
 
   return (
@@ -43,7 +44,29 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
         >
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-normal text-muted">{node.parentId ? "追问" : "总览"}</p>
+              <div className="flex items-center gap-3">
+                <p className="text-xs font-medium uppercase tracking-normal text-muted">{node.parentId ? "追问" : "总览"}</p>
+                {node.batchId ? (() => {
+                  const batchNodes = nodes.filter(n => n.batchId === node.batchId).sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                  if (batchNodes.length > 1) {
+                    const idx = batchNodes.findIndex(n => n.id === node.id);
+                    const nextNode = batchNodes[(idx + 1) % batchNodes.length];
+                    return (
+                      <button 
+                        className="flex items-center gap-1 rounded bg-focus/10 px-2 py-0.5 text-[10px] font-semibold text-focus hover:bg-focus/20 transition-colors"
+                        onClick={() => {
+                          setFocus(nextNode.id);
+                          onJump(nextNode.id);
+                        }}
+                        title="查看下一关联问题"
+                      >
+                        关联问题 {idx + 1}/{batchNodes.length} ➔
+                      </button>
+                    )
+                  }
+                  return null;
+                })() : null}
+              </div>
               <h2 className="mt-1 break-words text-lg font-semibold leading-7 whitespace-pre-wrap">{node.userQuery}</h2>
               {node.anchorText ? (
                 <blockquote className="mt-3 border-l-2 border-focus bg-mist px-3 py-2 text-sm leading-6 text-muted">
@@ -59,7 +82,7 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
               {node.resolved ? "恢复" : "已理解"}
             </button>
           </div>
-          <div className="prose-answer text-[15px]" onMouseUp={captureSelection}>
+          <div className="prose-answer text-[15px]" onMouseUp={() => captureSelection(node.id)}>
             {node.aiResponse ? (
               <MarkdownAnswer content={node.aiResponse} />
             ) : answerState.status === "streaming" && answerState.nodeId === node.id ? (
@@ -109,13 +132,13 @@ export function Conversation({ path, focusId, registerNode, onQuote }: Conversat
           className="fixed z-50 flex -translate-x-1/2 -translate-y-full overflow-hidden rounded-md border border-line bg-white shadow-soft"
           style={{ left: selection.x, top: selection.y }}
         >
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "ask"); setSelection(null); }}>
+          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "ask", selection.nodeId); setSelection(null); }}>
             追问
           </button>
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "explain"); setSelection(null); }}>
+          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "explain", selection.nodeId); setSelection(null); }}>
             解释
           </button>
-          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "expand"); setSelection(null); }}>
+          <button className="px-3 py-2 text-xs hover:bg-mist" type="button" onClick={() => { onQuote(selection.text, "expand", selection.nodeId); setSelection(null); }}>
             展开
           </button>
         </div>
