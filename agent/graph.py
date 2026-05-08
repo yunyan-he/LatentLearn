@@ -50,7 +50,7 @@ from agent.state import AgentState
 def route_after_intent(state: AgentState) -> str:
     """intent_router 后的路由：overview 直接到 tutor，其余先经 decomposer"""
     mode = state.get("mode", "followup")
-    if mode == "overview":
+    if mode == "overview" or state.get("skip_decomposition", False):
         return "tutor"
     return "decomposer"
 

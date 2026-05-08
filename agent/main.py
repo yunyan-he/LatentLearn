@@ -69,6 +69,7 @@ class FollowUpRequest(BaseModel):
     user_query: str
     anchor_text: str | None = None
     language: str = "en"
+    skip_decomposition: bool = False
 
 
 class DecomposeRequest(BaseModel):
@@ -150,6 +151,7 @@ async def overview(req: OverviewRequest):
         anchor_text=None,
         language=req.language,  # type: ignore[arg-type]
         mode="overview",
+        skip_decomposition=True,
         decomposed_questions=[],
         needs_decomposition=False,
         answer="",
@@ -173,6 +175,7 @@ async def followup(req: FollowUpRequest):
         anchor_text=req.anchor_text,
         language=req.language,  # type: ignore[arg-type]
         mode="followup",
+        skip_decomposition=req.skip_decomposition,
         decomposed_questions=[],
         needs_decomposition=False,
         answer="",
@@ -200,6 +203,7 @@ async def decompose(req: DecomposeRequest):
         anchor_text=None,
         language=req.language,  # type: ignore[arg-type]
         mode="decompose",
+        skip_decomposition=False,
         decomposed_questions=[],
         needs_decomposition=False,
         answer="",

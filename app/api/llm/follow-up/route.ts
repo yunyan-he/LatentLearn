@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       query: string;
       anchorText?: string;
       language?: "en" | "zh";
+      skipDecomposition?: boolean;
     };
 
     if (AGENT_API_URL) {
@@ -24,6 +25,7 @@ export async function POST(request: Request) {
         user_query: body.query,
         anchor_text: body.anchorText ?? null,
         language: body.language ?? "en",
+        skip_decomposition: Boolean(body.skipDecomposition),
       });
     }
 

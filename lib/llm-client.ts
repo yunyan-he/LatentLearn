@@ -9,9 +9,9 @@ export async function* streamFollowUp(
   path: BubbleNode[],
   query: string,
   anchorText?: string,
-  options?: { signal?: AbortSignal; language?: "en" | "zh" }
+  options?: { signal?: AbortSignal; language?: "en" | "zh"; skipDecomposition?: boolean }
 ): AsyncGenerator<string> {
-  yield* streamFromApi("/api/llm/follow-up", { document, path, query, anchorText, language: options?.language }, options);
+  yield* streamFromApi("/api/llm/follow-up", { document, path, query, anchorText, language: options?.language, skipDecomposition: options?.skipDecomposition }, options);
 }
 
 export async function decomposeQuery(document: LearningDocument, query: string, language?: "en" | "zh"): Promise<QuestionPlan> {

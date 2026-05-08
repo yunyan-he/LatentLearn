@@ -222,7 +222,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       let raw = "";
       const path = getPath(parentId);
       try {
-        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, { signal: abortControllerRef.current.signal, language })) {
+        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, { signal: abortControllerRef.current.signal, language, skipDecomposition })) {
           raw += chunk;
           const parsed = parseOffTopic(raw);
           updateNode(nodeId, {
@@ -262,7 +262,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         const path = getPath(node.parentId);
-        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, { signal: abortControllerRef.current.signal, language })) {
+        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, { signal: abortControllerRef.current.signal, language, skipDecomposition: true })) {
           response += chunk;
           const parsed = parseOffTopic(response);
           updateNode(nodeId, { aiResponse: parsed.answer, isOffTopic: parsed.isOffTopic, offTopicHint: parsed.hint });

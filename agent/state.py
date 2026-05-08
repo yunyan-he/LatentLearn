@@ -56,6 +56,7 @@ class AgentState(TypedDict):
     anchor_text: str | None
     language: Literal["en", "zh"]
     mode: Literal["overview", "followup", "decompose"]
+    skip_decomposition: bool
 
     # ── 中间产物 ───────────────────────────────────────────────────────────────
     decomposed_questions: list[DecomposedQuestion]  # decomposer 产出
