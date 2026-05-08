@@ -38,6 +38,24 @@ export async function POST(request: Request) {
  * We translate "chunk" events back to plain text bytes so the existing
  * frontend `streamFromApi` helper works without any changes.
  */
+
+function sanitizeAgentContent(content: string, allowOffTopic: boolean) {
+  const trimmed = content.trim();
+  if (looksLikePlannerJson(trimmed)) return "";
+  if (!allowOffTopic) return content.replace(/\[OFFTOPIC\][\s\S]*$/i, "");
+  return content;
+}
+
+function looksLikePlannerJson(value: string) {
+  if (!value.startsWith("{")) return false;
+  try {
+    const parsed = JSON.parse(value) as { decomposed?: unknown; questions?: unknown; mounts?: unknown };
+    return "decomposed" in parsed || "questions" in parsed || "mounts" in parsed;
+  } catch {
+    return false;
+  }
+}
+
 async function proxyToAgent(url: string, body: unknown) {
   const upstream = await fetch(url, {
     method: "POST",
@@ -76,7 +94,8 @@ async function proxyToAgent(url: string, body: unknown) {
               try {
                 const parsed = JSON.parse(data) as { type: string; content?: string };
                 if (parsed.type === "chunk" && parsed.content) {
-                  controller.enqueue(encoder.encode(parsed.content));
+                  const clean = sanitizeAgentContent(parsed.content, false);
+                  if (clean) controller.enqueue(encoder.encode(clean));
                 }
                 // "metadata" events are intentionally dropped here;
                 // the frontend currently relies on [OFFTOPIC] text markers.

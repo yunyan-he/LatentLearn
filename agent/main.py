@@ -103,8 +103,14 @@ async def _stream_graph_response(initial_state: AgentState, thread_id: str):
     async for event in graph.astream_events(initial_state, config=config, version="v2"):
         kind = event.get("event", "")
 
-        # LLM 流式 token
+        # LLM 流式 token：只允许 tutor 节点的回答进入前端正文。
+        # decomposer / tree-writer 等结构化 JSON 节点的 token 必须过滤掉，
+        # 否则会把 {"decomposed": ...} 之类内容显示成回答。
         if kind == "on_chat_model_stream":
+            metadata = event.get("metadata", {}) or {}
+            node_name = metadata.get("langgraph_node")
+            if node_name != "tutor":
+                continue
             chunk = event.get("data", {}).get("chunk")
             if chunk and hasattr(chunk, "content") and chunk.content:
                 yield _sse(json.dumps({"type": "chunk", "content": chunk.content}))

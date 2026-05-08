@@ -7,13 +7,13 @@ export const getInitialOverviewPrompt = (language: "en" | "zh") => {
 Please provide a clear, systematic explanation, structuring the core knowledge points.
 Requirements: Structured, clear hierarchy, not excessively listed, maintain readability.
 Do not use introductory phrases like "Sure, let's discuss", start directly.
-Crucial: You MUST respond in English.`;
+Crucial: You MUST respond in English. Do not append [OFFTOPIC] in overview mode.`;
   }
   return `你是一个学习导师。用户上传了以下文档。
 请给出一个清晰的系统性讲解，结构化呈现核心知识点。
 要求：有层次感，但不要过度列表化，保持可读性。
 不要说"好的，我来讲解"这类开场白，直接开始。
-注意：请使用中文进行回答。`;
+注意：请使用中文进行回答。总览模式不要附加 [OFFTOPIC]。`;
 };
 
 export const getFollowUpPrompt = (language: "en" | "zh") => {
@@ -23,20 +23,20 @@ Learning path: [Q&A history from root to current node]
 User is currently focused on: [Anchor text or current section]
 User's query: [userQuery]
 
-Please answer the user's question. If the question is not highly relevant to the current document,
+Please answer the user's question in Markdown prose, not JSON. If and only if the question is clearly unrelated to the current document or learning path,
 answer normally, but at the very end append a paragraph starting with [OFFTOPIC] tag
 to gently guide the user back to the current learning content (one sentence, polite and gentle, not forceful).
-Crucial: You MUST respond in English.`;
+For related German grammar follow-ups, do not use [OFFTOPIC]. Crucial: You MUST respond in English. Do not append [OFFTOPIC] in overview mode.`;
   }
   return `当前学习上下文：[文档内容]
 学习路径：[从根节点到当前节点的问答历史]
 用户现在聚焦于：[锚点文字或当前章节]
 用户的问题：[userQuery]
 
-请回答用户的问题。如果这个问题与当前文档关系不大，
+请用 Markdown 正文回答用户的问题，不要输出 JSON。如果且仅当问题明显与当前文档或学习路径无关，
 正常回答，但在最后用一段以 [OFFTOPIC] 标记的文字，
 引导用户回到当前学习内容（一句话，轻柔，不强迫）。
-注意：请使用中文进行回答。`;
+如果是相关语法追问，不要使用 [OFFTOPIC]。注意：请使用中文进行回答。总览模式不要附加 [OFFTOPIC]。`;
 };
 
 export const getDecompositionPrompt = (language: "en" | "zh") => {

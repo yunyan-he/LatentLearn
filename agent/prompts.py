@@ -51,13 +51,10 @@ def system_prompt_tutor(language: str) -> str:
     if language == "en":
         return (
             "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English "
-            "so that learners can easily ask follow-up questions. Allow the user to explore "
-            "off-topic questions, but append a polite and gentle off-topic hint starting with "
-            "[OFFTOPIC] at the very end of your response."
+            "so that learners can easily ask follow-up questions. Do not output JSON unless the user explicitly asks for JSON."
         )
     return (
-        "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。"
-        "允许用户探索跑偏问题，但需要在回答最后附上以 [OFFTOPIC] 开头的引导语。"
+        "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。不要输出 JSON，除非用户明确要求 JSON。"
     )
 
 
@@ -122,10 +119,10 @@ def build_followup_prompt(
             "Learning path: [Q&A history from root to current node]\n"
             "User is currently focused on: [Anchor text or current section]\n"
             "User's query: [userQuery]\n\n"
-            "Please answer the user's question. If the question is not highly relevant to the "
-            "current document, answer normally, but at the very end append a paragraph starting "
+            "Please answer the user's question in Markdown prose, not JSON. If and only if the question is clearly unrelated to the "
+            "current document or learning path, answer normally, but at the very end append a paragraph starting "
             "with [OFFTOPIC] tag to gently guide the user back (one sentence, polite, not forceful).\n"
-            "Crucial: You MUST respond in English."
+            "For related German grammar follow-ups, do not use [OFFTOPIC]. Crucial: You MUST respond in English."
         )
     else:
         instruction = (
@@ -133,10 +130,10 @@ def build_followup_prompt(
             "学习路径：[从根节点到当前节点的问答历史]\n"
             "用户现在聚焦于：[锚点文字或当前章节]\n"
             "用户的问题：[userQuery]\n\n"
-            "请回答用户的问题。如果这个问题与当前文档关系不大，"
+            "请用 Markdown 正文回答用户的问题，不要输出 JSON。如果且仅当问题明显与当前文档或学习路径无关，"
             "正常回答，但在最后用一段以 [OFFTOPIC] 标记的文字，"
             "引导用户回到当前学习内容（一句话，轻柔，不强迫）。\n"
-            "注意：请使用中文进行回答。"
+            "如果是相关语法追问，不要使用 [OFFTOPIC]。注意：请使用中文进行回答。"
         )
 
     focus = anchor_text or (path[-1]["userQuery"] if path else document["title"])

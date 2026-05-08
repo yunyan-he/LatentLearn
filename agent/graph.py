@@ -62,6 +62,13 @@ def route_after_decomposer(state: AgentState) -> str:
     return "tutor"
 
 
+def route_after_tutor(state: AgentState) -> str:
+    """overview 不需要跑偏检测；followup 才解析 [OFFTOPIC] 控制标记。"""
+    if state.get("mode") == "overview":
+        return END
+    return "offtopic_eval"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Intent Router Node（轻量，仅做 mode 校验，不调用 LLM）
 # ─────────────────────────────────────────────────────────────────────────────
@@ -105,8 +112,12 @@ def build_graph():
         {END: END, "tutor": "tutor"},
     )
 
-    # tutor → offtopic_eval（总是经过，即便不跑题）
-    builder.add_edge("tutor", "offtopic_eval")
+    # tutor → overview 直接结束；followup 再进入 off-topic 控制标记解析
+    builder.add_conditional_edges(
+        "tutor",
+        route_after_tutor,
+        {END: END, "offtopic_eval": "offtopic_eval"},
+    )
 
     # offtopic_eval → END
     builder.add_edge("offtopic_eval", END)
