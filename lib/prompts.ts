@@ -106,6 +106,82 @@ Requirements:
 - query 必须是中文问题句`;
 };
 
+
+export function buildTreeWriterContext(
+  nodes: BubbleNode[],
+  questions: Array<{ id: string; query: string; anchor: string | null; reason?: string }>,
+  currentNodeId: string | null,
+  quoteRefs: Array<{ nodeId: string; text: string }>,
+  language: "en" | "zh" = "en"
+): string {
+  const compactNodes = nodes.map((node) => ({
+    id: node.id,
+    parentId: node.parentId,
+    title: node.userQuery.slice(0, 160),
+    resolved: node.resolved,
+    anchorText: node.anchorText?.slice(0, 220) ?? null,
+    answerSummary: node.aiResponse.replace(/\s+/g, " ").slice(0, 520)
+  }));
+
+  if (language === "en") {
+    return `You are LatentLearn's Tree Writer Agent. Your job is to decide where each planned follow-up question should be mounted in the learning tree.
+
+Rules:
+- If a question is directly about a quote, mount it under the quote's source node.
+- If a question combines multiple quoted nodes, mount it under their nearest shared conceptual parent when possible.
+- If there are no quotes, semantically match the question to the most relevant existing node by title and answer summary.
+- If the current node is resolved and the question is broad, prefer the nearest unresolved ancestor or the overview node.
+- Use only parentId values from the provided node list.
+- Output valid JSON only.
+
+Output schema:
+{
+  "mounts": [
+    { "questionId": "question id", "parentId": "node id", "strategy": "quote-source|lca|semantic-match|resolved-ancestor|current-focus|overview", "reason": "short reason" }
+  ]
+}
+
+Current node id: ${currentNodeId ?? "null"}
+
+Quote refs:
+${JSON.stringify(quoteRefs, null, 2)}
+
+Existing tree nodes:
+${JSON.stringify(compactNodes, null, 2)}
+
+Planned questions:
+${JSON.stringify(questions, null, 2)}`;
+  }
+
+  return `你是 LatentLearn 的 Tree Writer Agent。你的任务是判断每个计划中的追问应该挂载到学习树的哪个节点下面。
+
+规则：
+- 如果问题直接追问某段划词引用，挂到该引用来源节点下。
+- 如果问题综合了多个引用节点，尽量挂到它们共同的概念交汇父节点下。
+- 如果没有引用，按问题语义与历史节点标题、回答摘要匹配，挂到最相关的节点下。
+- 如果当前节点已理解且问题很宽泛，优先挂到最近的未理解祖先或总览节点。
+- parentId 只能使用给定节点列表中的 id。
+- 只输出有效 JSON。
+
+输出格式：
+{
+  "mounts": [
+    { "questionId": "问题 id", "parentId": "节点 id", "strategy": "quote-source|lca|semantic-match|resolved-ancestor|current-focus|overview", "reason": "简短理由" }
+  ]
+}
+
+当前节点 id: ${currentNodeId ?? "null"}
+
+引用来源：
+${JSON.stringify(quoteRefs, null, 2)}
+
+现有树节点：
+${JSON.stringify(compactNodes, null, 2)}
+
+计划问题：
+${JSON.stringify(questions, null, 2)}`;
+}
+
 export function buildInitialPrompt(document: LearningDocument, language: "en" | "zh" = "en"): string {
   return `${getInitialOverviewPrompt(language)}
 

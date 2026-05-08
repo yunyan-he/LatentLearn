@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createTopicDocument, parseMarkdownFile } from "@/lib/document";
-import { decomposeQuery, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
+import { decomposeQuery, planTreeMounts, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
 import { parseOffTopic } from "@/lib/mock-ai";
 import type { AnswerState, BubbleNode, DecomposedQuestion, LearningDocument, QuestionPlan, QuoteRef } from "@/lib/types";
 import { saveSession, getSession } from "@/lib/storage";
@@ -193,7 +193,9 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         const plan = await safeDecompose(document, cleaned, language);
         setAnswerState({ status: "idle" });
         if (plan.questions.length > 1) {
-          setPendingPlan(attachMountTargets(plan, quoteRefs, customParentId, nodes));
+          const fallbackPlan = attachMountTargets(plan, quoteRefs, customParentId, nodes);
+          const mountedPlan = await safePlanMounts(fallbackPlan, nodes, parentId, quoteRefs, language);
+          setPendingPlan(mountedPlan);
           return;
         }
       }
@@ -375,6 +377,30 @@ export function useLearning() {
   return store;
 }
 
+
+async function safePlanMounts(plan: QuestionPlan, nodes: BubbleNode[], currentNodeId: string | undefined, quoteRefs: QuoteRef[], language: "en" | "zh") {
+  try {
+    const treePlan = await planTreeMounts(nodes, plan.questions, currentNodeId ?? null, quoteRefs, language);
+    if (treePlan.mounts.length === 0) return plan;
+    const byQuestionId = new Map(treePlan.mounts.map((mount) => [mount.questionId, mount]));
+    return {
+      ...plan,
+      questions: plan.questions.map((question) => {
+        const mount = byQuestionId.get(question.id);
+        if (!mount) return question;
+        return {
+          ...question,
+          mountNodeId: mount.parentId,
+          mountStrategy: mount.strategy,
+          mountReason: mount.reason
+        };
+      })
+    };
+  } catch {
+    return plan;
+  }
+}
+
 function attachMountTargets(plan: QuestionPlan, quoteRefs: QuoteRef[], fallbackNodeId: string | undefined, nodes: BubbleNode[]): QuestionPlan {
   if (!quoteRefs.length && !fallbackNodeId) return plan;
 
@@ -382,7 +408,9 @@ function attachMountTargets(plan: QuestionPlan, quoteRefs: QuoteRef[], fallbackN
     ...plan,
     questions: plan.questions.map((question) => ({
       ...question,
-      mountNodeId: question.mountNodeId ?? findBestMountNodeId(question, quoteRefs, fallbackNodeId, nodes)
+      mountNodeId: question.mountNodeId ?? findBestMountNodeId(question, quoteRefs, fallbackNodeId, nodes),
+      mountStrategy: question.mountStrategy ?? (quoteRefs.length ? "quote-or-lca-fallback" : "focus-fallback"),
+      mountReason: question.mountReason ?? "规则层兜底选择的挂载节点。"
     }))
   };
 }

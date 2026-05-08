@@ -92,6 +92,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                       }}
                     />
                     {question.reason ? <p className="mt-2 text-xs leading-5 text-muted">{question.reason}</p> : null}
+                    {question.mountReason ? <p className="mt-1 text-xs leading-5 text-focus">Tree Writer：{question.mountReason}</p> : null}
                   </div>
                   <div className="flex shrink-0 flex-col gap-1">
                     <button

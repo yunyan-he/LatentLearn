@@ -1,5 +1,5 @@
-import type { BubbleNode, LearningDocument, QuestionPlan } from "@/lib/types";
-import { buildDecompositionContext, buildFollowUpContext, buildInitialPrompt } from "@/lib/prompts";
+import type { BubbleNode, DecomposedQuestion, LearningDocument, QuoteRef, QuestionPlan, TreeMountPlan } from "@/lib/types";
+import { buildDecompositionContext, buildFollowUpContext, buildInitialPrompt, buildTreeWriterContext } from "@/lib/prompts";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -101,6 +101,34 @@ export async function decomposeQuery(document: LearningDocument, query: string, 
   };
 }
 
+
+export async function planTreeMounts(
+  nodes: BubbleNode[],
+  questions: DecomposedQuestion[],
+  currentNodeId: string | null,
+  quoteRefs: QuoteRef[],
+  language: "en" | "zh" = "en"
+): Promise<TreeMountPlan> {
+  if (questions.length === 0 || nodes.length === 0) return { mounts: [] };
+  const systemPrompt = language === "en"
+    ? "You are a Tree Writer Agent. Output only valid JSON."
+    : "你是 Tree Writer Agent。只输出有效 JSON。";
+  const content = await completeLlmProvider([
+    { role: "system", content: systemPrompt },
+    {
+      role: "user",
+      content: buildTreeWriterContext(
+        nodes,
+        questions.map((question) => ({ id: question.id, query: question.query, anchor: question.anchor, reason: question.reason })),
+        currentNodeId,
+        quoteRefs,
+        language
+      )
+    }
+  ]);
+  return parseTreeMountPlan(content, new Set(nodes.map((node) => node.id)), new Set(questions.map((question) => question.id)));
+}
+
 async function* streamLlmProvider(messages: ChatMessage[]): AsyncGenerator<string> {
   const response = await callLlmProvider(messages, true);
   if (!response.body) throw new Error("The LLM provider did not return a stream body.");
@@ -174,6 +202,28 @@ function parseSseLine(line: string) {
     return parsed.choices?.[0]?.delta?.content ?? "";
   } catch {
     return "";
+  }
+}
+
+
+function parseTreeMountPlan(content: string, validNodeIds: Set<string>, validQuestionIds: Set<string>): TreeMountPlan {
+  try {
+    const jsonText = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
+    const parsed = JSON.parse(jsonText) as {
+      mounts?: Array<{ questionId?: string; parentId?: string; strategy?: string; reason?: string }>;
+    };
+    return {
+      mounts: (parsed.mounts ?? [])
+        .filter((mount) => Boolean(mount.questionId && mount.parentId && validQuestionIds.has(mount.questionId) && validNodeIds.has(mount.parentId)))
+        .map((mount) => ({
+          questionId: mount.questionId!,
+          parentId: mount.parentId!,
+          strategy: typeof mount.strategy === "string" && mount.strategy.trim() ? mount.strategy.trim() : "semantic-match",
+          reason: typeof mount.reason === "string" && mount.reason.trim() ? mount.reason.trim() : "Tree Writer selected this node."
+        }))
+    };
+  } catch {
+    return { mounts: [] };
   }
 }
 

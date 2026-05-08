@@ -41,6 +41,8 @@ export interface DecomposedQuestion {
   reason?: string;
   order?: number;
   mountNodeId?: string;
+  mountStrategy?: string;
+  mountReason?: string;
   selected: boolean;
 }
 
@@ -58,3 +60,14 @@ export type AnswerState =
   | { status: "idle" }
   | { status: "streaming"; nodeId?: string; label: string }
   | { status: "decomposing" };
+
+export interface TreeMountDecision {
+  questionId: string;
+  parentId: string;
+  strategy: string;
+  reason: string;
+}
+
+export interface TreeMountPlan {
+  mounts: TreeMountDecision[];
+}
