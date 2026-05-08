@@ -3,6 +3,8 @@ import type { BubbleNode, DecomposedQuestion, QuoteRef } from "@/lib/types";
 
 export const runtime = "nodejs";
 
+const AGENT_API_URL = process.env.AGENT_API_URL?.trim();
+
 export async function POST(request: Request) {
   try {
     const { nodes, questions, currentNodeId, quoteRefs, language } = (await request.json()) as {
@@ -12,6 +14,25 @@ export async function POST(request: Request) {
       quoteRefs: QuoteRef[];
       language?: "en" | "zh";
     };
+    if (AGENT_API_URL) {
+      const upstream = await fetch(`${AGENT_API_URL}/api/tree-writer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nodes,
+          questions,
+          current_node_id: currentNodeId,
+          quote_refs: quoteRefs ?? [],
+          language: language ?? "en"
+        })
+      });
+      if (!upstream.ok) {
+        const detail = await upstream.text();
+        return new Response(`Agent error: ${upstream.status} ${detail.slice(0, 400)}`, { status: 502 });
+      }
+      return Response.json(await upstream.json());
+    }
+
     const plan = await planTreeMounts(nodes, questions, currentNodeId, quoteRefs ?? [], language ?? "en");
     return Response.json(plan);
   } catch (error) {

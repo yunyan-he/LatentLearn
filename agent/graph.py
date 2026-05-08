@@ -40,6 +40,7 @@ from langgraph.graph import END, START, StateGraph
 from agent.nodes.decomposer import decomposer_node
 from agent.nodes.offtopic_eval import offtopic_eval_node
 from agent.nodes.tutor import tutor_node
+from agent.nodes.tree_writer import tree_writer_node
 from agent.state import AgentState
 
 
@@ -50,6 +51,8 @@ from agent.state import AgentState
 def route_after_intent(state: AgentState) -> str:
     """intent_router 后的路由：overview 直接到 tutor，其余先经 decomposer"""
     mode = state.get("mode", "followup")
+    if mode == "tree_writer":
+        return "tree_writer"
     if mode == "overview" or state.get("skip_decomposition", False):
         return "tutor"
     return "decomposer"
@@ -76,7 +79,7 @@ def route_after_tutor(state: AgentState) -> str:
 def intent_router_node(state: AgentState) -> dict:
     """校验并规范化 mode 字段，无需 LLM 调用"""
     mode = state.get("mode", "followup")
-    if mode not in ("overview", "followup", "decompose"):
+    if mode not in ("overview", "followup", "decompose", "tree_writer"):
         mode = "followup"
     return {"mode": mode}
 
@@ -94,6 +97,7 @@ def build_graph():
     builder.add_node("decomposer", decomposer_node)
     builder.add_node("tutor", tutor_node)
     builder.add_node("offtopic_eval", offtopic_eval_node)
+    builder.add_node("tree_writer", tree_writer_node)
 
     # 入口
     builder.add_edge(START, "intent_router")
@@ -102,8 +106,11 @@ def build_graph():
     builder.add_conditional_edges(
         "intent_router",
         route_after_intent,
-        {"tutor": "tutor", "decomposer": "decomposer"},
+        {"tutor": "tutor", "decomposer": "decomposer", "tree_writer": "tree_writer"},
     )
+
+    # tree_writer → END（结构化 mount plan）
+    builder.add_edge("tree_writer", END)
 
     # decomposer → END（需拆解，返回 plan）或 tutor（单一问题继续）
     builder.add_conditional_edges(

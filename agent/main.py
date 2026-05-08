@@ -79,6 +79,15 @@ class DecomposeRequest(BaseModel):
     language: str = "en"
 
 
+class TreeWriterRequest(BaseModel):
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    nodes: list[dict]
+    questions: list[dict]
+    current_node_id: str | None = None
+    quote_refs: list[dict] = []
+    language: str = "en"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 工具函数
 # ─────────────────────────────────────────────────────────────────────────────
@@ -187,6 +196,33 @@ async def followup(req: FollowUpRequest):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.post("/api/tree-writer")
+async def tree_writer(req: TreeWriterRequest):
+    initial_state = AgentState(
+        thread_id=req.thread_id,
+        document={"type": "topic", "title": "", "content": "", "structure": []},  # type: ignore[arg-type]
+        conversation_path=[],
+        user_query="",
+        anchor_text=None,
+        language=req.language,  # type: ignore[arg-type]
+        mode="tree_writer",
+        skip_decomposition=True,
+        decomposed_questions=[],
+        needs_decomposition=False,
+        tree_nodes=req.nodes,  # type: ignore[typeddict-item]
+        tree_questions=req.questions,  # type: ignore[typeddict-item]
+        current_node_id=req.current_node_id,
+        quote_refs=req.quote_refs,  # type: ignore[typeddict-item]
+        tree_mounts=[],
+        answer="",
+        is_off_topic=False,
+        off_topic_hint=None,
+    )
+    config = _make_config(req.thread_id)
+    final_state = await graph.ainvoke(initial_state, config=config)
+    return {"mounts": final_state.get("tree_mounts", [])}
 
 
 @app.post("/api/decompose")

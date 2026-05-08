@@ -9,7 +9,7 @@ AgentState — LangGraph 状态机的全局状态定义
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, NotRequired
 from typing_extensions import TypedDict
 
 
@@ -32,6 +32,13 @@ class BubbleNode(TypedDict):
     parentId: str | None
     userQuery: str
     aiResponse: str
+    anchorText: NotRequired[str | None]
+    resolved: NotRequired[bool]
+
+
+class QuoteRef(TypedDict):
+    nodeId: str
+    text: str
 
 
 class DecomposedQuestion(TypedDict):
@@ -41,6 +48,16 @@ class DecomposedQuestion(TypedDict):
     reason: str | None
     order: int
     selected: bool
+    mountNodeId: NotRequired[str | None]
+    mountStrategy: NotRequired[str | None]
+    mountReason: NotRequired[str | None]
+
+
+class TreeMountDecision(TypedDict):
+    questionId: str
+    parentId: str
+    strategy: str
+    reason: str
 
 
 class AgentState(TypedDict):
@@ -55,12 +72,17 @@ class AgentState(TypedDict):
     user_query: str
     anchor_text: str | None
     language: Literal["en", "zh"]
-    mode: Literal["overview", "followup", "decompose"]
+    mode: Literal["overview", "followup", "decompose", "tree_writer"]
     skip_decomposition: bool
 
     # ── 中间产物 ───────────────────────────────────────────────────────────────
     decomposed_questions: list[DecomposedQuestion]  # decomposer 产出
     needs_decomposition: bool                        # router 判断：是否需要拆解
+    tree_nodes: NotRequired[list[BubbleNode]]
+    tree_questions: NotRequired[list[DecomposedQuestion]]
+    current_node_id: NotRequired[str | None]
+    quote_refs: NotRequired[list[QuoteRef]]
+    tree_mounts: NotRequired[list[TreeMountDecision]]
 
     # ── 最终输出 ───────────────────────────────────────────────────────────────
     answer: str           # 完整回答文本（流式场景下由 tutor node 构建）
