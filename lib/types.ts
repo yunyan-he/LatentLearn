@@ -40,12 +40,18 @@ export interface DecomposedQuestion {
   anchor: string | null;
   reason?: string;
   order?: number;
+  mountNodeId?: string;
   selected: boolean;
 }
 
 export interface QuestionPlan {
   summary: string;
   questions: DecomposedQuestion[];
+}
+
+export interface QuoteRef {
+  nodeId: string;
+  text: string;
 }
 
 export type AnswerState =

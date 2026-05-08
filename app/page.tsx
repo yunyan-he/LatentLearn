@@ -8,6 +8,7 @@ import { Intake } from "@/components/intake";
 import { TopBar } from "@/components/top-bar";
 import { HistorySidebar } from "@/components/history-sidebar";
 import { LearningProvider, useLearning } from "@/lib/learning-store";
+import type { QuoteRef } from "@/lib/types";
 
 function Workspace() {
   const {
@@ -27,17 +28,15 @@ function Workspace() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [draft, setDraft] = useState("");
   const [autoDecompose, setAutoDecompose] = useState(false);
-  const [targetNodeIds, setTargetNodeIds] = useState<Set<string>>(new Set());
+  const [quoteRefs, setQuoteRefs] = useState<QuoteRef[]>([]);
+  const [pendingJumpId, setPendingJumpId] = useState<string | null>(null);
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const path = useMemo(() => (focusId ? getPath(focusId) : []), [focusId, getPath]);
   const activeResponseLength = path[path.length - 1]?.aiResponse.length ?? 0;
 
   const jumpToNode = (nodeId: string) => {
-    setTimeout(() => {
-      const target = scrollRefs.current[nodeId];
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    setPendingJumpId(nodeId);
   };
 
   useEffect(() => {
@@ -61,9 +60,28 @@ function Workspace() {
 
   useEffect(() => {
     if (!draft.trim()) {
-      setTargetNodeIds(new Set());
+      setQuoteRefs([]);
     }
   }, [draft]);
+
+  useEffect(() => {
+    if (!pendingJumpId) return;
+    let cancelled = false;
+    const scroll = () => {
+      if (cancelled) return;
+      const target = scrollRefs.current[pendingJumpId];
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        setPendingJumpId(null);
+      } else {
+        window.requestAnimationFrame(scroll);
+      }
+    };
+    window.requestAnimationFrame(scroll);
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingJumpId, path]);
 
   const findLCA = (nodeIds: string[]) => {
     if (nodeIds.length === 0) return undefined;
@@ -143,11 +161,7 @@ function Workspace() {
             }}
             onQuote={(text, mode, nodeId) => {
               const prefix = mode === "explain" ? "解释这句话：" : mode === "expand" ? "展开讲讲：" : "我对此的疑问：";
-              setTargetNodeIds((prev) => {
-                const next = new Set(prev);
-                next.add(nodeId);
-                return next;
-              });
+              setQuoteRefs((prev) => [...prev, { nodeId, text }]);
               setDraft((prev) => {
                 const addition = `> ${text}\n${prefix}`;
                 return prev ? `${prev}\n\n${addition}` : addition;
@@ -165,13 +179,22 @@ function Workspace() {
         onAutoDecomposeChange={setAutoDecompose}
         onDraftChange={setDraft}
         onSubmit={async (query) => {
-          const customParentId = findLCA(Array.from(targetNodeIds));
+          const refs = quoteRefs;
+          const customParentId = findLCA(refs.map((ref) => ref.nodeId));
+          const anchorText = formatQuoteRefs(refs);
           setDraft("");
-          void askQuestion(query, undefined, !autoDecompose, customParentId);
+          setQuoteRefs([]);
+          void askQuestion(query, anchorText || undefined, !autoDecompose, customParentId, undefined, refs);
         }}
       />
     </div>
   );
+}
+
+
+function formatQuoteRefs(refs: QuoteRef[]) {
+  if (!refs.length) return "";
+  return refs.map((ref, index) => `引用 ${index + 1}: ${ref.text}`).join("\n\n");
 }
 
 export default function Home() {

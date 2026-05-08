@@ -4,8 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createTopicDocument, parseMarkdownFile } from "@/lib/document";
 import { decomposeQuery, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
 import { parseOffTopic } from "@/lib/mock-ai";
-import type { AnswerState, BubbleNode, DecomposedQuestion, LearningDocument, QuestionPlan } from "@/lib/types";
-import { saveSession, getSession, type LearningSession } from "@/lib/storage";
+import type { AnswerState, BubbleNode, DecomposedQuestion, LearningDocument, QuestionPlan, QuoteRef } from "@/lib/types";
+import { saveSession, getSession } from "@/lib/storage";
 
 interface LearningStore {
   sessionId: string | null;
@@ -19,7 +19,7 @@ interface LearningStore {
   initializeLearning(input: { kind: "file"; name: string; content: string } | { kind: "topic"; topic: string }): Promise<void>;
   loadSession(id: string): Promise<void>;
   clearSession(): void;
-  askQuestion(query: string, anchorText?: string, skipDecomposition?: boolean, customParentId?: string, batchId?: string): Promise<void>;
+  askQuestion(query: string, anchorText?: string, skipDecomposition?: boolean, customParentId?: string, batchId?: string, quoteRefs?: QuoteRef[]): Promise<void>;
   stopStreaming(): void;
   retryNode(nodeId: string): Promise<void>;
   confirmDecomposition(questions: DecomposedQuestion[]): Promise<void>;
@@ -173,7 +173,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const askQuestion: LearningStore["askQuestion"] = useCallback(
-    async (query, anchorText, skipDecomposition = false, customParentId, batchId) => {
+    async (query, anchorText, skipDecomposition = false, customParentId, batchId, quoteRefs = []) => {
       if (!document || !focusId) return;
       const cleaned = query.trim();
       if (!cleaned) return;
@@ -193,7 +193,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         const plan = await safeDecompose(document, cleaned, language);
         setAnswerState({ status: "idle" });
         if (plan.questions.length > 1) {
-          setPendingPlan(plan);
+          setPendingPlan(attachMountTargets(plan, quoteRefs, customParentId, nodes));
           return;
         }
       }
@@ -284,8 +284,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       const batchId = createId();
 
       for (const question of selected) {
-        let customParentId: string | undefined;
-        if (question.anchor) {
+        let customParentId = question.mountNodeId;
+        if (!customParentId && question.anchor) {
           const target = [...nodes].reverse().find(n => 
              n.aiResponse.includes(question.anchor!) || 
              n.userQuery.includes(question.anchor!) || 
@@ -373,6 +373,51 @@ export function useLearning() {
   const store = useContext(LearningContext);
   if (!store) throw new Error("useLearning must be used inside LearningProvider");
   return store;
+}
+
+function attachMountTargets(plan: QuestionPlan, quoteRefs: QuoteRef[], fallbackNodeId: string | undefined, nodes: BubbleNode[]): QuestionPlan {
+  if (!quoteRefs.length && !fallbackNodeId) return plan;
+
+  return {
+    ...plan,
+    questions: plan.questions.map((question) => ({
+      ...question,
+      mountNodeId: question.mountNodeId ?? findBestMountNodeId(question, quoteRefs, fallbackNodeId, nodes)
+    }))
+  };
+}
+
+function findBestMountNodeId(question: DecomposedQuestion, quoteRefs: QuoteRef[], fallbackNodeId: string | undefined, nodes: BubbleNode[]) {
+  if (!quoteRefs.length) return fallbackNodeId;
+  const haystack = `${question.query}\n${question.anchor ?? ""}\n${question.reason ?? ""}`.toLowerCase();
+
+  const direct = quoteRefs.find((ref) => ref.text && haystack.includes(ref.text.toLowerCase().slice(0, 48)));
+  if (direct) return direct.nodeId;
+
+  const scored = quoteRefs
+    .map((ref) => ({ ref, score: overlapScore(haystack, ref.text.toLowerCase()) }))
+    .sort((a, b) => b.score - a.score);
+  if (scored[0] && scored[0].score > 0) return scored[0].ref.nodeId;
+
+  if (question.anchor) {
+    const target = [...nodes].reverse().find((node) =>
+      node.aiResponse.includes(question.anchor!) ||
+      node.userQuery.includes(question.anchor!) ||
+      Boolean(node.anchorText?.includes(question.anchor!))
+    );
+    if (target) return target.id;
+  }
+
+  return fallbackNodeId;
+}
+
+function overlapScore(left: string, right: string) {
+  const tokens = right
+    .replace(/[\p{Punctuation}\p{Symbol}\s]+/gu, " ")
+    .split(" ")
+    .filter((token) => token.length >= 2)
+    .slice(0, 24);
+  return tokens.reduce((score, token) => score + (left.includes(token) ? 1 : 0), 0);
 }
 
 function createId() {

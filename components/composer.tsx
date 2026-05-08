@@ -14,7 +14,7 @@ interface ComposerProps {
 }
 
 export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange, onDraftChange, onSubmit }: ComposerProps) {
-  const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState, stopStreaming } = useLearning();
+  const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState, stopStreaming, getNode } = useLearning();
   const [localPending, setLocalPending] = useState<QuestionPlan | null>(null);
   const plan = pendingPlan ?? localPending;
   const questions = plan?.questions ?? [];
@@ -80,6 +80,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <span className="rounded bg-paper px-2 py-1">Q{question.order ?? index + 1}</span>
                       {question.anchor ? <span className="rounded bg-mist px-2 py-1">锚点：{question.anchor}</span> : null}
+                      {question.mountNodeId ? <span className="rounded bg-focus/10 px-2 py-1 text-focus">挂载：{getNode(question.mountNodeId)?.userQuery ?? "历史节点"}</span> : null}
                     </div>
                     <input
                       className="w-full rounded-md border border-line bg-paper px-3 py-2 outline-none focus:border-focus"
