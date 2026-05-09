@@ -228,7 +228,7 @@ function Workspace() {
         onSubmit={async (query) => {
           const refs = quoteRefs;
           const customParentId = findLCA(refs.map((ref) => ref.nodeId));
-          const anchorText = formatQuoteRefs(refs);
+          const anchorText = formatQuoteRefs(refs, language);
           setDraft("");
           setQuoteRefs([]);
           isAtBottomRef.current = true;
@@ -240,9 +240,10 @@ function Workspace() {
 }
 
 
-function formatQuoteRefs(refs: QuoteRef[]) {
+function formatQuoteRefs(refs: QuoteRef[], language: string) {
   if (!refs.length) return "";
-  return refs.map((ref, index) => `引用 ${index + 1}: ${ref.text}`).join("\n\n");
+  const prefix = language === "en" ? "Quote" : "引用";
+  return refs.map((ref, index) => `${prefix} ${index + 1}: ${ref.text}`).join("\n\n");
 }
 
 export default function Home() {

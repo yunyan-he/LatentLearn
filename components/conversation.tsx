@@ -72,7 +72,7 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
                 })() : null}
               </div>
               <h2 className="mt-1 break-words text-lg font-semibold leading-7 whitespace-pre-wrap">{node.userQuery}</h2>
-              {node.anchorText ? (
+              {node.anchorText && !node.anchorText.startsWith("引用 ") && !node.anchorText.startsWith("Quote ") ? (
                 <blockquote className="mt-3 border-l-2 border-focus bg-mist px-3 py-2 text-sm leading-6 text-muted">
                   {node.anchorText}
                 </blockquote>

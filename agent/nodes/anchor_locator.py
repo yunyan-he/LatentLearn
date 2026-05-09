@@ -194,8 +194,8 @@ async def anchor_locator_node(state: AgentState) -> dict:
         # 我们直接在本地扫描所有 Section 寻找匹配项，实现 0 毫秒高保真对焦，完全不调用大模型！
         manual_anchor = state.get("anchor_text")
         if manual_anchor and isinstance(manual_anchor, str) and manual_anchor.strip():
-            # 兼容单个或多个 "引用 X: " 格式的前端拼接数据，提取出纯净的原文进行扫描
-            quotes = [q.strip() for q in re.split(r"引用 \d+:\s*", manual_anchor.strip()) if q.strip()]
+            # 兼容单个或多个 "引用 X: " 或 "Quote X: " 格式的前端拼接数据，提取出纯净的原文进行扫描
+            quotes = [q.strip() for q in re.split(r"(?:引用|Quote) \d+:\s*", manual_anchor.strip()) if q.strip()]
             target_phrase = quotes[0] if quotes else manual_anchor.strip()
 
             for sec in sections:
