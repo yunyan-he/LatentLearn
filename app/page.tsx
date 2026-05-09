@@ -32,7 +32,17 @@ function Workspace() {
   const [pendingJumpId, setPendingJumpId] = useState<string | null>(null);
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
+  const isAtBottomRef = useRef(true);
   const path = useMemo(() => (focusId ? getPath(focusId) : []), [focusId, getPath]);
+
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container) return;
+    const threshold = 80;
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+    isAtBottomRef.current = isAtBottom;
+  };
   const activeResponseLength = path[path.length - 1]?.aiResponse.length ?? 0;
 
   const jumpToNode = (nodeId: string) => {
@@ -40,7 +50,7 @@ function Workspace() {
   };
 
   useEffect(() => {
-    if (answerState.status !== "streaming") return;
+    if (answerState.status !== "streaming" || !isAtBottomRef.current) return;
     const frame = window.requestAnimationFrame(() => {
       scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     });
@@ -151,7 +161,11 @@ function Workspace() {
           ? "lg:grid-cols-[minmax(0,1fr)_340px]" 
           : "lg:grid-cols-[minmax(0,1fr)_48px]"
       }`}>
-        <section className="min-h-0 overflow-y-auto px-5 pb-6 pt-6 lg:px-10">
+        <section
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="min-h-0 overflow-y-auto px-5 pb-6 pt-6 lg:px-10"
+        >
           <Conversation
             path={path}
             focusId={focusId}
@@ -184,6 +198,7 @@ function Workspace() {
           const anchorText = formatQuoteRefs(refs);
           setDraft("");
           setQuoteRefs([]);
+          isAtBottomRef.current = true;
           void askQuestion(query, anchorText || undefined, !autoDecompose, customParentId, undefined, refs);
         }}
       />
