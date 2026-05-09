@@ -9,6 +9,7 @@ nodes/tree_writer.py — Tree Writer Agent Node
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -16,6 +17,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from agent.config import get_llm
 from agent.prompts import build_tree_writer_prompt, system_prompt_decomposer
 from agent.state import AgentState, TreeMountDecision
+
+logger = logging.getLogger(__name__)
 
 
 def tree_writer_node(state: AgentState) -> dict:
@@ -49,6 +52,7 @@ def _parse_mounts(content: str, valid_node_ids: set[str | None], valid_question_
     try:
         payload = json.loads(cleaned.strip())
     except json.JSONDecodeError:
+        logger.warning("Failed to parse tree writer JSON output: %r", content[:500])
         return []
 
     mounts: list[TreeMountDecision] = []
@@ -56,6 +60,7 @@ def _parse_mounts(content: str, valid_node_ids: set[str | None], valid_question_
         question_id = mount.get("questionId")
         parent_id = mount.get("parentId")
         if question_id not in valid_question_ids or parent_id not in valid_node_ids:
+            logger.warning("Discarded invalid tree mount: %r", mount)
             continue
         mounts.append(
             TreeMountDecision(

@@ -139,7 +139,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
 
     let response = "";
     try {
-      for await (const chunk of streamInitialOverview(nextDocument, { signal: abortControllerRef.current.signal, language })) {
+      for await (const chunk of streamInitialOverview(nextDocument, { signal: abortControllerRef.current.signal, language, threadId: newSessionId })) {
         response += chunk;
         updateNode(rootId, { aiResponse: response });
       }
@@ -188,16 +188,19 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       }
       if (!parentId) return;
 
+      let shouldSkipAnswerDecomposition = skipDecomposition;
+
       if (!skipDecomposition) {
         setAnswerState({ status: "decomposing" });
-        const plan = await safeDecompose(document, cleaned, language);
+        const plan = await safeDecompose(document, cleaned, language, sessionId ?? undefined);
         setAnswerState({ status: "idle" });
         if (plan.questions.length > 1) {
           const fallbackPlan = attachMountTargets(plan, quoteRefs, customParentId, nodes);
-          const mountedPlan = await safePlanMounts(fallbackPlan, nodes, parentId, quoteRefs, language);
+          const mountedPlan = await safePlanMounts(fallbackPlan, nodes, parentId, quoteRefs, language, sessionId ?? undefined);
           setPendingPlan(mountedPlan);
           return;
         }
+        shouldSkipAnswerDecomposition = true;
       }
 
       const nodeId = createId();
@@ -222,7 +225,12 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       let raw = "";
       const path = getPath(parentId);
       try {
-        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, { signal: abortControllerRef.current.signal, language, skipDecomposition })) {
+        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, {
+          signal: abortControllerRef.current.signal,
+          language,
+          skipDecomposition: shouldSkipAnswerDecomposition,
+          threadId: sessionId ?? undefined
+        })) {
           raw += chunk;
           const parsed = parseOffTopic(raw);
           updateNode(nodeId, {
@@ -238,7 +246,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       }
       setAnswerState({ status: "idle" });
     },
-    [appendChild, document, focusId, getPath, updateNode, language, getNode]
+    [appendChild, document, focusId, getPath, updateNode, language, getNode, nodes, sessionId]
   );
 
   const retryNode = useCallback(async (nodeId: string) => {
@@ -256,13 +264,18 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     let response = "";
     try {
       if (node.parentId === null) {
-        for await (const chunk of streamInitialOverview(document, { signal: abortControllerRef.current.signal, language })) {
+        for await (const chunk of streamInitialOverview(document, { signal: abortControllerRef.current.signal, language, threadId: sessionId ?? undefined })) {
           response += chunk;
           updateNode(nodeId, { aiResponse: response });
         }
       } else {
         const path = getPath(node.parentId);
-        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, { signal: abortControllerRef.current.signal, language, skipDecomposition: true })) {
+        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, {
+          signal: abortControllerRef.current.signal,
+          language,
+          skipDecomposition: true,
+          threadId: sessionId ?? undefined
+        })) {
           response += chunk;
           const parsed = parseOffTopic(response);
           updateNode(nodeId, { aiResponse: parsed.answer, isOffTopic: parsed.isOffTopic, offTopicHint: parsed.hint });
@@ -274,7 +287,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setAnswerState({ status: "idle" });
-  }, [document, getNode, getPath, updateNode, stopStreaming, language]);
+  }, [document, getNode, getPath, updateNode, stopStreaming, language, sessionId]);
 
   const confirmDecomposition = useCallback(
     async (questions: DecomposedQuestion[]) => {
@@ -378,9 +391,9 @@ export function useLearning() {
 }
 
 
-async function safePlanMounts(plan: QuestionPlan, nodes: BubbleNode[], currentNodeId: string | undefined, quoteRefs: QuoteRef[], language: "en" | "zh") {
+async function safePlanMounts(plan: QuestionPlan, nodes: BubbleNode[], currentNodeId: string | undefined, quoteRefs: QuoteRef[], language: "en" | "zh", threadId?: string) {
   try {
-    const treePlan = await planTreeMounts(nodes, plan.questions, currentNodeId ?? null, quoteRefs, language);
+    const treePlan = await planTreeMounts(nodes, plan.questions, currentNodeId ?? null, quoteRefs, language, threadId);
     if (treePlan.mounts.length === 0) return plan;
     const byQuestionId = new Map(treePlan.mounts.map((mount) => [mount.questionId, mount]));
     return {
@@ -452,9 +465,9 @@ function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function safeDecompose(document: LearningDocument, query: string, language: "en" | "zh") {
+async function safeDecompose(document: LearningDocument, query: string, language: "en" | "zh", threadId?: string) {
   try {
-    return await decomposeQuery(document, query, language);
+    return await decomposeQuery(document, query, language, threadId);
   } catch {
     return {
       summary: language === "en" ? "Decomposition failed, answering directly." : "拆解失败，直接按原问题回答。",

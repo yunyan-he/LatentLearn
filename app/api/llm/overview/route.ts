@@ -11,10 +11,11 @@ const AGENT_API_URL = process.env.AGENT_API_URL?.trim();
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { document: LearningDocument; language?: "en" | "zh" };
+    const body = (await request.json()) as { document: LearningDocument; language?: "en" | "zh"; threadId?: string };
 
     if (AGENT_API_URL) {
       return proxyToAgent(`${AGENT_API_URL}/api/overview`, {
+        thread_id: body.threadId,
         document: body.document,
         language: body.language ?? "en",
       });

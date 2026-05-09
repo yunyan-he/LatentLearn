@@ -10,6 +10,7 @@ nodes/decomposer.py — 问题拆解 Agent Node
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 
@@ -18,6 +19,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from agent.config import get_llm
 from agent.prompts import build_decomposition_prompt, system_prompt_decomposer
 from agent.state import AgentState, DecomposedQuestion
+
+logger = logging.getLogger(__name__)
 
 
 def decomposer_node(state: AgentState) -> dict:
@@ -78,4 +81,5 @@ def _parse_decomposition(content: str) -> dict:
     try:
         return json.loads(cleaned.strip())
     except json.JSONDecodeError:
+        logger.warning("Failed to parse decomposer JSON output: %r", content[:500])
         return {"decomposed": False, "summary": "", "questions": []}

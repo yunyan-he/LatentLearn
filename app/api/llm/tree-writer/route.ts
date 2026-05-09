@@ -7,18 +7,20 @@ const AGENT_API_URL = process.env.AGENT_API_URL?.trim();
 
 export async function POST(request: Request) {
   try {
-    const { nodes, questions, currentNodeId, quoteRefs, language } = (await request.json()) as {
+    const { nodes, questions, currentNodeId, quoteRefs, language, threadId } = (await request.json()) as {
       nodes: BubbleNode[];
       questions: DecomposedQuestion[];
       currentNodeId: string | null;
       quoteRefs: QuoteRef[];
       language?: "en" | "zh";
+      threadId?: string;
     };
     if (AGENT_API_URL) {
       const upstream = await fetch(`${AGENT_API_URL}/api/tree-writer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          thread_id: threadId,
           nodes,
           questions,
           current_node_id: currentNodeId,

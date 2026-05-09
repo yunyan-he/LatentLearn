@@ -8,10 +8,11 @@ const AGENT_API_URL = process.env.AGENT_API_URL?.trim();
 
 export async function POST(request: Request) {
   try {
-    const { document, query, language } = (await request.json()) as {
+    const { document, query, language, threadId } = (await request.json()) as {
       document: LearningDocument;
       query: string;
       language?: "en" | "zh";
+      threadId?: string;
     };
 
     if (AGENT_API_URL) {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
       const upstream = await fetch(`${AGENT_API_URL}/api/decompose`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ document, query, language: language ?? "en" }),
+        body: JSON.stringify({ thread_id: threadId, document, query, language: language ?? "en" }),
       });
       if (!upstream.ok) {
         const detail = await upstream.text();

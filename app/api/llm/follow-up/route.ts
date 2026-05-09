@@ -15,11 +15,13 @@ export async function POST(request: Request) {
       anchorText?: string;
       language?: "en" | "zh";
       skipDecomposition?: boolean;
+      threadId?: string;
     };
 
     if (AGENT_API_URL) {
       // Map TS field names → agent API field names
       return proxyToAgent(`${AGENT_API_URL}/api/followup`, {
+        thread_id: body.threadId,
         document: body.document,
         conversation_path: body.path,
         user_query: body.query,
@@ -74,6 +76,8 @@ async function proxyToAgent(url: string, body: unknown) {
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let sawOffTopicMarker = false;
+  let recentText = "";
 
   return new Response(
     new ReadableStream({
@@ -91,10 +95,17 @@ async function proxyToAgent(url: string, body: unknown) {
               const data = trimmed.slice(5).trim();
               if (!data || data === "[DONE]") continue;
               try {
-                const parsed = JSON.parse(data) as { type: string; content?: string };
+                const parsed = JSON.parse(data) as { type: string; content?: string; is_off_topic?: boolean; off_topic_hint?: string | null };
                 if (parsed.type === "chunk" && parsed.content) {
                   const clean = sanitizeAgentContent(parsed.content, true);
-                  if (clean) controller.enqueue(encoder.encode(clean));
+                  if (clean) {
+                    recentText = `${recentText}${clean}`.slice(-32);
+                    if (recentText.includes("[OFFTOPIC]")) sawOffTopicMarker = true;
+                    controller.enqueue(encoder.encode(clean));
+                  }
+                } else if (parsed.type === "metadata" && parsed.is_off_topic && !sawOffTopicMarker) {
+                  const hint = parsed.off_topic_hint ? ` ${parsed.off_topic_hint}` : "";
+                  controller.enqueue(encoder.encode(`\n\n[OFFTOPIC]${hint}`));
                 }
               } catch {
                 // non-JSON SSE line, skip

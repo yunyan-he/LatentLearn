@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -19,6 +20,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from agent.config import get_llm
 from agent.prompts import build_anchor_locator_prompt, system_prompt_anchor_locator
 from agent.state import AgentState, AnchorLocation, DecomposedQuestion, DocumentSection
+
+logger = logging.getLogger(__name__)
+MAX_CANDIDATE_SECTIONS = 3
 
 
 def score_section(query: str, section: DocumentSection) -> float:
@@ -135,7 +139,21 @@ def _parse_anchor_json(content: str) -> dict:
     try:
         return json.loads(cleaned.strip())
     except json.JSONDecodeError:
+        logger.warning("Failed to parse anchor locator JSON output: %r", content[:500])
         return {"anchor_text": None, "confidence": 0.0}
+
+
+def top_candidate_sections(query: str, sections: list[DocumentSection]) -> list[DocumentSection]:
+    """Return a small ranked candidate set instead of betting all recall on top-1."""
+    ranked = sorted(sections, key=lambda s: score_section(query, s), reverse=True)
+    return ranked[:MAX_CANDIDATE_SECTIONS]
+
+
+def best_anchor_result(results: list[dict]) -> dict | None:
+    anchored = [res for res in results if res.get("anchor_text")]
+    if anchored:
+        return max(anchored, key=lambda res: float(res.get("confidence") or 0.0))
+    return results[0] if results else None
 
 
 async def anchor_locator_node(state: AgentState) -> dict:
@@ -166,25 +184,24 @@ async def anchor_locator_node(state: AgentState) -> dict:
             if not query_text:
                 continue
 
-            # Stage 1: 本地检索出最匹配的小节
-            ranked = sorted(sections, key=lambda s: score_section(query_text, s), reverse=True)
-            best_section = ranked[0] if ranked else None
-
-            if best_section:
-                # Stage 2: 加入并发任务池
-                tasks.append(extract_anchor_from_section(best_section, query_text, language))
-                question_indices.append((idx, best_section["id"]))
+            # Stage 1: 本地检索出最匹配的小节候选
+            candidates = top_candidate_sections(query_text, sections)
+            if candidates:
+                # Stage 2: 每个问题并发尝试 top candidates，降低召回错位概率
+                tasks.append(_extract_best_anchor(candidates, query_text, language))
+                question_indices.append(idx)
 
         if tasks:
             # 异步并发执行，总耗时仅等于单次 API 响应时间
             results = await asyncio.gather(*tasks)
 
             updated_questions = list(decomposed_questions)
-            for (q_idx, section_id), res in zip(question_indices, results):
+            for q_idx, res in zip(question_indices, results):
                 anchor_text = res.get("anchor_text")
                 if anchor_text:
                     updated_questions[q_idx]["anchor"] = anchor_text
-                updated_questions[q_idx]["section_id"] = section_id
+                if res.get("section_id"):
+                    updated_questions[q_idx]["section_id"] = res["section_id"]
 
             return {"decomposed_questions": updated_questions}
 
@@ -227,12 +244,11 @@ async def anchor_locator_node(state: AgentState) -> dict:
             return {}
 
         # Stage 1: 本地打分过滤
-        ranked = sorted(sections, key=lambda s: score_section(user_query, s), reverse=True)
-        best_section = ranked[0] if ranked else None
+        candidates = top_candidate_sections(user_query, sections)
 
-        if best_section:
+        if candidates:
             # Stage 2: 模型精确提取
-            res = await extract_anchor_from_section(best_section, user_query, language)
+            res = await _extract_best_anchor(candidates, user_query, language)
             anchor_text = res.get("anchor_text")
 
             updates = {
@@ -249,3 +265,14 @@ async def anchor_locator_node(state: AgentState) -> dict:
             return updates
 
     return {}
+
+
+async def _extract_best_anchor(sections: list[DocumentSection], query: str, language: str) -> dict:
+    results = await asyncio.gather(
+        *(extract_anchor_from_section(section, query, language) for section in sections)
+    )
+    return best_anchor_result(results) or {
+        "anchor_text": None,
+        "section_id": sections[0]["id"] if sections else None,
+        "confidence": 0.0,
+    }
