@@ -14,7 +14,7 @@ interface ComposerProps {
 }
 
 export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange, onDraftChange, onSubmit }: ComposerProps) {
-  const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState, stopStreaming, getNode } = useLearning();
+  const { pendingPlan, setPendingPlan, confirmDecomposition, jumpToParent, answerState, stopStreaming, getNode, language } = useLearning();
   const [localPending, setLocalPending] = useState<QuestionPlan | null>(null);
   const plan = pendingPlan ?? localPending;
   const questions = plan?.questions ?? [];
@@ -42,15 +42,19 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
           <div className="mb-3 max-h-[48vh] overflow-y-auto rounded-lg border border-line bg-paper p-4 shadow-soft">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-medium">Question Planner 识别到 {questions.length} 个疑惑点</p>
-                <p className="mt-1 text-xs leading-5 text-muted">{plan?.summary || "我会按更适合学习的顺序帮你逐个追问。"}</p>
+                <p className="text-sm font-medium">
+                  {language === "en" ? `Question Planner identified ${questions.length} sub-questions` : `Question Planner 识别到 ${questions.length} 个疑惑点`}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-muted">
+                  {plan?.summary || (language === "en" ? "I will follow up with you step-by-step in an optimal learning sequence." : "我会按更适合学习的顺序帮你逐个追问。")}
+                </p>
               </div>
               <div className="flex shrink-0 flex-wrap justify-end gap-2">
                 <button className="rounded border border-line bg-white px-2 py-1 text-xs text-muted hover:text-ink" type="button" onClick={() => updatePlan(questions.map((item) => ({ ...item, selected: true })))}>
-                  全选
+                  {language === "en" ? "Select All" : "全选"}
                 </button>
                 <button className="rounded border border-line bg-white px-2 py-1 text-xs text-muted hover:text-ink" type="button" onClick={() => updatePlan(questions.map((item) => ({ ...item, selected: false })))}>
-                  清空
+                  {language === "en" ? "Clear" : "清空"}
                 </button>
                 <button
                   className="rounded border border-line bg-white px-2 py-1 text-xs text-muted hover:text-ink"
@@ -60,7 +64,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                     setLocalPending(null);
                   }}
                 >
-                  取消
+                  {language === "en" ? "Cancel" : "取消"}
                 </button>
               </div>
             </div>
@@ -79,26 +83,26 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                   <div className="min-w-0">
                     <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                       <span className="rounded bg-paper px-2 py-1">Q{question.order ?? index + 1}</span>
-                      {question.anchor ? <span className="rounded bg-mist px-2 py-1">锚点：{question.anchor}</span> : null}
-                      {question.mountNodeId ? <span className="rounded bg-focus/10 px-2 py-1 text-focus">挂载：{getNode(question.mountNodeId)?.userQuery ?? "历史节点"}</span> : null}
+                      {question.anchor ? <span className="rounded bg-mist px-2 py-1">{language === "en" ? `Anchor: ${question.anchor}` : `锚点：${question.anchor}`}</span> : null}
+                      {question.mountNodeId ? <span className="rounded bg-focus/10 px-2 py-1 text-focus">{(language === "en" ? "Mount: " : "挂载：") + (getNode(question.mountNodeId)?.userQuery ?? (language === "en" ? "History Node" : "历史节点"))}</span> : null}
                     </div>
                     <input
                       className="w-full rounded-md border border-line bg-paper px-3 py-2 outline-none focus:border-focus"
                       value={question.query}
-                      aria-label={`问题 ${index + 1}`}
+                      aria-label={language === "en" ? `Question ${index + 1}` : `问题 ${index + 1}`}
                       onChange={(event) => {
                         const next = questions.map((item) => (item.id === question.id ? { ...item, query: event.target.value } : item));
                         updatePlan(next);
                       }}
                     />
                     {question.reason ? <p className="mt-2 text-xs leading-5 text-muted">{question.reason}</p> : null}
-                    {question.mountReason ? <p className="mt-1 text-xs leading-5 text-focus">Tree Writer：{question.mountReason}</p> : null}
+                    {question.mountReason ? <p className="mt-1 text-xs leading-5 text-focus">Tree Writer: {question.mountReason}</p> : null}
                   </div>
                   <div className="flex shrink-0 flex-col gap-1">
                     <button
                       className="grid size-8 place-items-center rounded border border-line bg-paper text-xs text-muted hover:border-focus hover:text-focus disabled:opacity-30"
                       type="button"
-                      title="上移"
+                      title={language === "en" ? "Move Up" : "上移"}
                       disabled={index === 0}
                       onClick={() => updatePlan(moveQuestion(questions, index, index - 1))}
                     >
@@ -107,7 +111,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                     <button
                       className="grid size-8 place-items-center rounded border border-line bg-paper text-xs text-muted hover:border-focus hover:text-focus disabled:opacity-30"
                       type="button"
-                      title="下移"
+                      title={language === "en" ? "Move Down" : "下移"}
                       disabled={index === questions.length - 1}
                       onClick={() => updatePlan(moveQuestion(questions, index, index + 1))}
                     >
@@ -116,7 +120,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                     <button
                       className="grid size-8 place-items-center rounded border border-line bg-paper text-xs text-muted hover:border-red-300 hover:text-red-700 disabled:opacity-30"
                       type="button"
-                      title="删除"
+                      title={language === "en" ? "Delete" : "删除"}
                       disabled={questions.length <= 2}
                       onClick={() => updatePlan(questions.filter((item) => item.id !== question.id))}
                     >
@@ -127,8 +131,8 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
               ))}
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:border-focus" type="button" onClick={() => updatePlan([...questions, createQuestion(questions.length)])}>
-                新增问题
+              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:border-focus" type="button" onClick={() => updatePlan([...questions, createQuestion(questions.length, language)])}>
+                {language === "en" ? "Add Question" : "新增问题"}
               </button>
               <button
                 className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
@@ -139,7 +143,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
                   setLocalPending(null);
                 }}
               >
-                顺序追问
+                {language === "en" ? "Follow Up Sequentially" : "顺序追问"}
               </button>
             </div>
           </div>
@@ -153,13 +157,16 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
               onChange={(e) => onAutoDecomposeChange(e.target.checked)}
               className="rounded border-line text-focus focus:ring-focus"
             />
-            开启智能拆解 (Question Planner)
+            {language === "en" ? "Enable smart decomposition (Question Planner)" : "开启智能拆解 (Question Planner)"}
           </label>
           <div className="group relative flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted/60 cursor-help hover:text-muted"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
             <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-64 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 z-50">
               <div className="rounded-md border border-line bg-ink p-2.5 text-xs text-white shadow-lg leading-relaxed">
-                开启后，当你发送长段疑问时，AI 会自动帮你梳理逻辑，并拆解成多个子问题依次解答。默认关闭，适合简单的直接问答。
+                {language === "en" 
+                  ? "When enabled, if you send a long or complex query, the AI will automatically structure your logic and break it down into multiple sub-questions to guide you step-by-step. Disabled by default, which is suitable for simple direct Q&As."
+                  : "开启后，当你发送长段疑问时，AI 会自动帮你梳理逻辑，并拆解成多个子问题依次解答。默认关闭，适合简单的直接问答。"
+                }
                 <svg className="absolute -bottom-1 left-1/2 h-2 w-4 -translate-x-1/2 text-ink" fill="currentColor" viewBox="0 0 24 12"><path d="M12 12L0 0h24z"></path></svg>
               </div>
             </div>
@@ -170,16 +177,20 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
           <button
             className="grid h-11 place-items-center px-3 rounded-md border border-line bg-paper text-sm hover:border-focus disabled:opacity-35 transition-colors focus:bg-mist active:bg-mist"
             type="button"
-            title="返回上一层"
+            title={language === "en" ? "Go to Parent Level" : "返回上一层"}
             onClick={jumpToParent}
             disabled={disabled}
           >
-            ↑ 返回上层
+            {language === "en" ? "↑ Parent" : "↑ 返回上层"}
           </button>
           <textarea
             ref={textareaRef}
             className="max-h-36 min-h-11 resize-none rounded-md border border-line bg-paper px-4 py-3 text-sm leading-6 outline-none focus:border-focus"
-            placeholder={answerState.status === "decomposing" ? "正在拆解问题..." : "继续追问... (Cmd/Ctrl + Enter 发送)"}
+            placeholder={
+              answerState.status === "decomposing"
+                ? (language === "en" ? "Decomposing question..." : "正在拆解问题...")
+                : (language === "en" ? "Follow up... (Cmd/Ctrl + Enter to send)" : "继续追问... (Cmd/Ctrl + Enter 发送)")
+            }
             value={draft}
             disabled={disabled}
             onChange={(event) => onDraftChange(event.target.value)}
@@ -196,7 +207,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
               type="button"
               onClick={stopStreaming}
             >
-              停止生成
+              {language === "en" ? "Stop Generating" : "停止生成"}
             </button>
           ) : (
             <button
@@ -205,7 +216,7 @@ export function Composer({ draft, disabled, autoDecompose, onAutoDecomposeChange
               disabled={disabled || (!draft.trim() && !isSent)}
               onClick={() => void send()}
             >
-              {isSent ? "已发送 ✓" : "发送"}
+              {isSent ? (language === "en" ? "Sent ✓" : "已发送 ✓") : (language === "en" ? "Send" : "发送")}
             </button>
           )}
         </div>
@@ -230,12 +241,12 @@ function moveQuestion(questions: DecomposedQuestion[], from: number, to: number)
   return next;
 }
 
-function createQuestion(index: number): DecomposedQuestion {
+function createQuestion(index: number, language: "en" | "zh"): DecomposedQuestion {
   return {
     id: `manual-${Date.now()}-${index}`,
     query: "",
     anchor: null,
-    reason: "用户手动补充的问题。",
+    reason: language === "en" ? "Manually added question." : "用户手动补充的问题。",
     order: index + 1,
     selected: true
   };
