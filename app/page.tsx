@@ -28,7 +28,7 @@ function Workspace() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [draft, setDraft] = useState("");
-  const [autoDecompose, setAutoDecompose] = useState(false);
+  const [autoDecompose, setAutoDecompose] = useState(true);
   const [quoteRefs, setQuoteRefs] = useState<QuoteRef[]>([]);
   const [pendingJumpId, setPendingJumpId] = useState<string | null>(null);
   const scrollRefs = useRef<Record<string, HTMLElement | null>>({});
