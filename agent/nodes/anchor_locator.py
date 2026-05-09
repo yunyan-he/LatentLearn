@@ -53,6 +53,40 @@ def score_section(query: str, section: DocumentSection) -> float:
     return score
 
 
+def normalize_and_find_substring(anchor_text: str, content: str) -> str | None:
+    """
+    对大模型输出的划词进行强健性清洗与子串恢复：
+      1. 移除大模型可能误加的外层引号（如 "text" 或 'text'）
+      2. 校验直接大小写敏感匹配
+      3. 校验大小写不敏感匹配，并返回原文中的原始大小写版本
+      4. 去除可能误加的末尾标点（. , ; ! ?）再次进行匹配
+    """
+    cleaned = anchor_text.strip()
+    if len(cleaned) >= 2:
+        if (cleaned[0] == '"' and cleaned[-1] == '"') or (cleaned[0] == "'" and cleaned[-1] == "'"):
+            cleaned = cleaned[1:-1].strip()
+
+    # 1. 完美大小写敏感匹配
+    if cleaned in content:
+        return cleaned
+
+    # 2. 大小写不敏感匹配，找回并返回原文的真实大小写
+    idx = content.lower().find(cleaned.lower())
+    if idx != -1:
+        return content[idx : idx + len(cleaned)]
+
+    # 3. 剥离可能由 LLM 附带产生的末尾标点，再次尝试匹配
+    trimmed = cleaned.rstrip(".,;!?\"'")
+    if trimmed:
+        if trimmed in content:
+            return trimmed
+        idx_trimmed = content.lower().find(trimmed.lower())
+        if idx_trimmed != -1:
+            return content[idx_trimmed : idx_trimmed + len(trimmed)]
+
+    return None
+
+
 async def extract_anchor_from_section(section: DocumentSection, query: str, language: str) -> dict:
     """
     Stage 2: 异步调用大模型，从选定的小节内容中提取出完全一致的原文子串。
@@ -70,10 +104,11 @@ async def extract_anchor_from_section(section: DocumentSection, query: str, lang
 
         anchor_text = parsed.get("anchor_text")
         if anchor_text and isinstance(anchor_text, str) and anchor_text.strip():
-            # 严格验证提取的划词是正文内容的子串（大小写敏感），防止模型编造
-            if anchor_text in section["content"]:
+            # 使用高强健性的子串匹配算法提取和校准原文
+            matched_substring = normalize_and_find_substring(anchor_text, section["content"])
+            if matched_substring:
                 return {
-                    "anchor_text": anchor_text,
+                    "anchor_text": matched_substring,
                     "section_id": section["id"],
                     "confidence": float(parsed.get("confidence") or 0.8),
                 }
