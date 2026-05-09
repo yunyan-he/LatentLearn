@@ -41,6 +41,12 @@ class QuoteRef(TypedDict):
     text: str
 
 
+class AnchorLocation(TypedDict):
+    anchor_text: str | None
+    section_id: str | None
+    confidence: float
+
+
 class DecomposedQuestion(TypedDict):
     id: str
     query: str
@@ -51,6 +57,7 @@ class DecomposedQuestion(TypedDict):
     mountNodeId: NotRequired[str | None]
     mountStrategy: NotRequired[str | None]
     mountReason: NotRequired[str | None]
+    section_id: NotRequired[str | None]
 
 
 class TreeMountDecision(TypedDict):
@@ -78,6 +85,7 @@ class AgentState(TypedDict):
     # ── 中间产物 ───────────────────────────────────────────────────────────────
     decomposed_questions: list[DecomposedQuestion]  # decomposer 产出
     needs_decomposition: bool                        # router 判断：是否需要拆解
+    located_anchor: NotRequired[AnchorLocation]      # anchor_locator 产出 (单提问模式)
     tree_nodes: NotRequired[list[BubbleNode]]
     tree_questions: NotRequired[list[DecomposedQuestion]]
     current_node_id: NotRequired[str | None]

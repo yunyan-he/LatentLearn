@@ -41,6 +41,7 @@ from agent.nodes.decomposer import decomposer_node
 from agent.nodes.offtopic_eval import offtopic_eval_node
 from agent.nodes.tutor import tutor_node
 from agent.nodes.tree_writer import tree_writer_node
+from agent.nodes.anchor_locator import anchor_locator_node
 from agent.state import AgentState
 
 
@@ -58,11 +59,12 @@ def route_after_intent(state: AgentState) -> str:
     return "decomposer"
 
 
-def route_after_decomposer(state: AgentState) -> str:
-    """decomposer 后的路由：需要拆解 → END（由 FastAPI 返回 plan），否则继续 tutor"""
+def route_after_locator(state: AgentState) -> str:
+    """anchor_locator 后的路由：需要拆解 → END（由 FastAPI 返回 plan），否则继续 tutor"""
     if state.get("needs_decomposition", False):
         return END
     return "tutor"
+
 
 
 def route_after_tutor(state: AgentState) -> str:
@@ -95,6 +97,7 @@ def build_graph():
     # 注册 Nodes
     builder.add_node("intent_router", intent_router_node)
     builder.add_node("decomposer", decomposer_node)
+    builder.add_node("anchor_locator", anchor_locator_node)
     builder.add_node("tutor", tutor_node)
     builder.add_node("offtopic_eval", offtopic_eval_node)
     builder.add_node("tree_writer", tree_writer_node)
@@ -112,10 +115,13 @@ def build_graph():
     # tree_writer → END（结构化 mount plan）
     builder.add_edge("tree_writer", END)
 
-    # decomposer → END（需拆解，返回 plan）或 tutor（单一问题继续）
+    # decomposer → anchor_locator (定位原文片段)
+    builder.add_edge("decomposer", "anchor_locator")
+
+    # anchor_locator → END（需拆解，返回 plan）或 tutor（单一问题继续）
     builder.add_conditional_edges(
-        "decomposer",
-        route_after_decomposer,
+        "anchor_locator",
+        route_after_locator,
         {END: END, "tutor": "tutor"},
     )
 

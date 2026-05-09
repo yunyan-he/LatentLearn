@@ -66,6 +66,13 @@ def system_prompt_decomposer(language: str) -> str:
     return "你只输出有效 JSON，不要 Markdown，不要解释。"
 
 
+def system_prompt_anchor_locator(language: str) -> str:
+    if language == "en":
+        return "You only output valid JSON, no Markdown formatting, no extra explanation."
+    return "你只输出有效 JSON，不要 Markdown，不要解释。"
+
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # User Prompt 构建函数
 # ─────────────────────────────────────────────────────────────────────────────
@@ -278,3 +285,28 @@ def build_decomposition_prompt(document: LearningDocument, query: str, language:
         f"User says:\n{query}\n\n"
         f"Current document structure:\n{section_titles(document.get('structure', []))}"
     )
+
+
+def build_anchor_locator_prompt(section_content: str, query: str, language: str = "en") -> str:
+    if language == "en":
+        return (
+            f"You are a precise text anchor locator. Your task is to analyze the provided text section and find the most relevant, EXACT, continuous substring that relates to or directly answers the user's question.\n\n"
+            f"Rules:\n"
+            f"1. The 'anchor_text' MUST be an EXACT, case-sensitive continuous substring found inside the provided section content. Do not change punctuation, spelling, casing, or whitespaces. Do not paraphrase or summarize.\n"
+            f"2. If no matching substring exists, or if the text section does not contain relevant content, return null for anchor_text.\n"
+            f"3. Output ONLY a valid JSON object with the following schema, no Markdown formatting, no code fences:\n"
+            f'{{\n  "anchor_text": "the exact matching substring or null",\n  "confidence": 0.0 to 1.0\n}}\n\n'
+            f"Section Content:\n\"\"\"\n{section_content}\n\"\"\"\n\n"
+            f"User Question:\n\"\"\"\n{query}\n\"\"\""
+        )
+    return (
+        f"你是一个精准的文本锚点定位器。你的任务是在给定的章节正文中，找到最能回答或关联用户问题的一段**完全一致的、连续的原文子字符串**。\n\n"
+        f"规则：\n"
+        f"1. 提取的 'anchor_text' 必须是给定章节正文（Section Content）中的**完全一致、大小写敏感、连续的原始子字符串**。绝对不能做任何修改、润色、缩写或解释，必须完全一致。\n"
+        f"2. 如果章节正文中没有任何相关的句子，或者没有相关原文，返回 null 作为 anchor_text。\n"
+        f"3. 必须仅输出一个有效的 JSON 对象，不要 Markdown，不要任何解释或前后缀：\n"
+        f'{{\n  "anchor_text": "完全一致的原文子字符串或 null",\n  "confidence": 0.0 到 1.0\n}}\n\n'
+        f"章节正文 (Section Content):\n\"\"\"\n{section_content}\n\"\"\"\n\n"
+        f"用户提问 (User Question):\n\"\"\"\n{query}\n\"\"\""
+    )
+
