@@ -174,6 +174,8 @@ function Workspace() {
           onSelect={loadSession}
           onNew={clearSession}
           currentSessionId={sessionId}
+          autoDecompose={autoDecompose}
+          onAutoDecomposeChange={setAutoDecompose}
         />
         {/* We add a small history button to Intake if it has no top bar, or just let them open it via TopBar when they have a document. Wait, Intake doesn't have TopBar. Let's add a floating history button to Intake */}
         <button
@@ -202,6 +204,8 @@ function Workspace() {
         onSelect={loadSession}
         onNew={clearSession}
         currentSessionId={sessionId}
+        autoDecompose={autoDecompose}
+        onAutoDecomposeChange={setAutoDecompose}
       />
       <main className={`grid min-h-0 flex-1 grid-cols-1 overflow-hidden transition-all duration-300 ${
         treeOpen 
@@ -254,8 +258,6 @@ function Workspace() {
       <Composer
         draft={draft}
         disabled={answerState.status === "streaming"}
-        autoDecompose={autoDecompose}
-        onAutoDecomposeChange={setAutoDecompose}
         onDraftChange={setDraft}
         onSubmit={async (query) => {
           const refs = quoteRefs;

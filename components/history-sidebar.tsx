@@ -10,9 +10,19 @@ interface HistorySidebarProps {
   onSelect(id: string): void;
   onNew(): void;
   currentSessionId: string | null;
+  autoDecompose: boolean;
+  onAutoDecomposeChange(value: boolean): void;
 }
 
-export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionId }: HistorySidebarProps) {
+export function HistorySidebar({
+  open,
+  onClose,
+  onSelect,
+  onNew,
+  currentSessionId,
+  autoDecompose,
+  onAutoDecomposeChange
+}: HistorySidebarProps) {
   const { language } = useLearning();
   const [sessions, setSessions] = useState<SessionMetadata[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +120,31 @@ export function HistorySidebar({ open, onClose, onSelect, onNew, currentSessionI
               ))}
             </div>
           )}
+        </div>
+
+        {/* Bottom Settings Toggle Block */}
+        <div className="border-t border-line bg-white/50 p-4 shrink-0">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-line bg-white px-4 py-3 shadow-sm hover:border-focus transition-all">
+            <div className="min-w-0 flex-1">
+              <span className="text-xs font-semibold text-ink leading-none block">
+                {language === "en" ? "Question Planner" : "智能问题拆解"}
+              </span>
+              <span className="text-[10px] text-muted leading-tight mt-1.5 block">
+                {language === "en" 
+                  ? "Pre-structure complex questions" 
+                  : "自动规划并拆解复杂追问"}
+              </span>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={autoDecompose}
+                onChange={(e) => onAutoDecomposeChange(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-line rounded-full peer peer-checked:bg-focus after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+            </label>
+          </div>
         </div>
       </aside>
     </>
