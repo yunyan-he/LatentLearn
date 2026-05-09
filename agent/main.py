@@ -89,6 +89,12 @@ class TreeWriterRequest(BaseModel):
     language: str = "en"
 
 
+class SummarizePathRequest(BaseModel):
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    conversation_path: list[dict] = []
+    language: str = "en"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 工具函数
 # ─────────────────────────────────────────────────────────────────────────────
@@ -312,3 +318,12 @@ async def decompose(req: DecomposeRequest):
         ),
         "questions": questions,
     }
+
+
+@app.post("/api/summarize-path")
+async def summarize_path_route(req: SummarizePathRequest):
+    """
+    定期对对话路径进行提取汇总，提供已掌握、未决问题和总结建议
+    """
+    from agent.nodes.memory_summarizer import summarize_path
+    return await summarize_path(req.conversation_path, req.language) # type: ignore[arg-type]
