@@ -190,6 +190,38 @@ async def anchor_locator_node(state: AgentState) -> dict:
 
     # ── 情况 B: 单一问题提问（正常追问模式） ──────────────────────────────────────────
     else:
+        # 1. 黄金先验快捷路径：如果用户已经手动进行了划词高亮 (state.get("anchor_text") 存在)
+        # 我们直接在本地扫描所有 Section 寻找匹配项，实现 0 毫秒高保真对焦，完全不调用大模型！
+        manual_anchor = state.get("anchor_text")
+        if manual_anchor and isinstance(manual_anchor, str) and manual_anchor.strip():
+            # 兼容单个或多个 "引用 X: " 格式的前端拼接数据，提取出纯净的原文进行扫描
+            quotes = [q.strip() for q in re.split(r"引用 \d+:\s*", manual_anchor.strip()) if q.strip()]
+            target_phrase = quotes[0] if quotes else manual_anchor.strip()
+
+            for sec in sections:
+                # A. 严格大小写匹配
+                if target_phrase in sec["content"]:
+                    return {
+                        "located_anchor": AnchorLocation(
+                            anchor_text=target_phrase,
+                            section_id=sec["id"],
+                            confidence=1.0,  # 用户手动指认，置信度直接设为 1.0 (100% 确信)
+                        )
+                    }
+                # B. 大小写不敏感匹配（并自动纠正为原文的真实大小写）
+                idx = sec["content"].lower().find(target_phrase.lower())
+                if idx != -1:
+                    actual_text = sec["content"][idx : idx + len(target_phrase)]
+                    return {
+                        "located_anchor": AnchorLocation(
+                            anchor_text=actual_text,
+                            section_id=sec["id"],
+                            confidence=1.0,
+                        ),
+                        "anchor_text": actual_text,  # 纠正为原文的真实大小写
+                    }
+
+        # 2. 正常路径：如果用户没有提供任何手动划词，才调用 AI 定位器进行智能检索和抽取
         user_query = state.get("user_query", "").strip()
         if not user_query:
             return {}
