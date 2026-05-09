@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field
 from agent.config import get_settings
 from agent.graph import graph
 from agent.state import AgentState, BubbleNode, LearningDocument
+from agent.utils.security import sanitize_text, sanitize_document, check_query_safety
 
 # ─────────────────────────────────────────────────────────────────────────────
 # App 初始化
@@ -140,6 +141,17 @@ async def _stream_graph_response(initial_state: AgentState, thread_id: str):
     yield _sse("[DONE]")
 
 
+async def _stream_safety_warning(warning_text: str):
+    """当触发输入安全拦截时，优雅返回 SSE 流，告知警告信息并不崩溃前端。"""
+    yield _sse(json.dumps({"type": "chunk", "content": warning_text}))
+    yield _sse(json.dumps({
+        "type": "metadata",
+        "is_off_topic": True,
+        "off_topic_hint": "safety-alert",
+    }))
+    yield _sse("[DONE]")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────────────────────────────────────
@@ -152,9 +164,12 @@ async def health():
 
 @app.post("/api/overview")
 async def overview(req: OverviewRequest):
+    # 防御清洗文档，彻底剥离 HTML 注入和 XSS 脚本
+    safe_doc = sanitize_document(req.document)
+
     initial_state = AgentState(
         thread_id=req.thread_id,
-        document=req.document,  # type: ignore[arg-type]
+        document=safe_doc,  # type: ignore[arg-type]
         conversation_path=[],
         user_query="",
         anchor_text=None,
@@ -176,12 +191,28 @@ async def overview(req: OverviewRequest):
 
 @app.post("/api/followup")
 async def followup(req: FollowUpRequest):
+    # 1. 净化用户提问及划词
+    clean_query = sanitize_text(req.user_query)
+    clean_anchor = sanitize_text(req.anchor_text)
+
+    # 2. 检查输入安全合规性（长度、提示词注入、违规有毒内容）
+    is_safe, warning_msg = check_query_safety(clean_query)
+    if not is_safe and warning_msg:
+        return StreamingResponse(
+            _stream_safety_warning(warning_msg),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    # 3. 防御清洗文档
+    safe_doc = sanitize_document(req.document)
+
     initial_state = AgentState(
         thread_id=req.thread_id,
-        document=req.document,  # type: ignore[arg-type]
+        document=safe_doc,  # type: ignore[arg-type]
         conversation_path=req.conversation_path,  # type: ignore[arg-type]
-        user_query=req.user_query,
-        anchor_text=req.anchor_text,
+        user_query=clean_query or "",
+        anchor_text=clean_anchor,
         language=req.language,  # type: ignore[arg-type]
         mode="followup",
         skip_decomposition=req.skip_decomposition,
@@ -231,11 +262,23 @@ async def decompose(req: DecomposeRequest):
     非流式：运行 decomposer node，返回 QuestionPlan JSON。
     与前端 decomposeQuery() 函数期望的格式完全兼容。
     """
+    # 1. 净化提问并校验安全合规
+    clean_query = sanitize_text(req.query)
+    is_safe, warning_msg = check_query_safety(clean_query)
+    if not is_safe and warning_msg:
+        return {
+            "summary": warning_msg,
+            "questions": [],
+        }
+
+    # 2. 防御净化文档
+    safe_doc = sanitize_document(req.document)
+
     initial_state = AgentState(
         thread_id=req.thread_id,
-        document=req.document,  # type: ignore[arg-type]
+        document=safe_doc,  # type: ignore[arg-type]
         conversation_path=[],
-        user_query=req.query,
+        user_query=clean_query or "",
         anchor_text=None,
         language=req.language,  # type: ignore[arg-type]
         mode="decompose",
