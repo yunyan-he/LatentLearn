@@ -7,6 +7,27 @@ echo "🚀 Starting LatentLearn Development Server..."
 
 echo "----------------------------------------"
 
+# 0. Check and free up ports 3000 and 8100 if they are occupied
+echo "🔍 Checking for lingering processes on ports 3000 and 8100..."
+PORT_3000_PID=$(lsof -t -i :3000 2>/dev/null || true)
+PORT_8100_PID=$(lsof -t -i :8100 2>/dev/null || true)
+
+if [ -n "$PORT_3000_PID" ]; then
+    echo "⚠️ Port 3000 is occupied by process(es):"
+    echo "$PORT_3000_PID"
+    echo "   Freeing up port 3000..."
+    kill -9 $PORT_3000_PID || true
+fi
+
+if [ -n "$PORT_8100_PID" ]; then
+    echo "⚠️ Port 8100 is occupied by process(es):"
+    echo "$PORT_8100_PID"
+    echo "   Freeing up port 8100..."
+    kill -9 $PORT_8100_PID || true
+fi
+
+echo "----------------------------------------"
+
 # 1. Check Node.js installation
 if ! command -v npm &> /dev/null; then
     echo "❌ Error: 'npm' is not installed or not in your PATH."
