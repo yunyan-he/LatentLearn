@@ -16,3 +16,8 @@ agent/__pycache__
 agent/**/__pycache__
 agent/.env.agent
 **/*.pyc
+
+# LangGraph CLI & Studio temporary files
+.langgraph_api/
+.langgraph/
+

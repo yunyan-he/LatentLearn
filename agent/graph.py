@@ -129,6 +129,11 @@ def build_graph():
     # offtopic_eval → END
     builder.add_edge("offtopic_eval", END)
 
+    import os
+    # 如果检测到是在 LangGraph API / CLI / Studio 运行环境，则不传递自定义 checkpointer
+    if any(k.startswith("LANGGRAPH_") for k in os.environ):
+        return builder.compile()
+
     # MemorySaver：进程内 checkpointing，用于 thread_id 隔离。
     # 未来换成 PostgresSaver 只需改这一行：
     #   from langgraph.checkpoint.postgres import PostgresSaver
