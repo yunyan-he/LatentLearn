@@ -34,6 +34,7 @@ function Workspace() {
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const isAtBottomRef = useRef(true);
+  const lastTouchYRef = useRef<number | null>(null);
   const path = useMemo(() => (focusId ? getPath(focusId) : []), [focusId, getPath]);
 
   const handleScroll = () => {
@@ -42,6 +43,32 @@ function Workspace() {
     const threshold = 80;
     const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
     isAtBottomRef.current = isAtBottom;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLElement>) => {
+    if (e.deltaY < 0) {
+      // Scrolling up
+      isAtBottomRef.current = false;
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.touches[0];
+    if (touch) {
+      lastTouchYRef.current = touch.clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLElement>) => {
+    const touch = e.touches[0];
+    if (touch && lastTouchYRef.current !== null) {
+      const deltaY = touch.clientY - lastTouchYRef.current;
+      if (deltaY > 0) {
+        // Dragging finger down, which scrolls the view up (to read history)
+        isAtBottomRef.current = false;
+      }
+      lastTouchYRef.current = touch.clientY;
+    }
   };
   const activeResponseLength = path[path.length - 1]?.aiResponse.length ?? 0;
 
@@ -164,6 +191,9 @@ function Workspace() {
         <section
           ref={containerRef}
           onScroll={handleScroll}
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
           className="min-h-0 overflow-y-auto px-5 pb-6 pt-6 lg:px-10"
         >
           <Conversation
