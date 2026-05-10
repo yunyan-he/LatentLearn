@@ -92,9 +92,10 @@ LatentLearn is architected as an decoupled, event-driven system combining high-p
             ▼                                                     ▼
      [Overview Mode]                                     [Follow-up Mode]
      • Run intent_router                                 • Run intent_router
-     • Run tutor (generates main content)                • Run decomposer (breaks down query)
-            │                                            • Run anchor_locator (maps text anchor)
-            │                                            • Run tutor (drafts localized answer)
+     • Run tutor (generates main content &               • Run decomposer (breaks down query)
+       extracts core document_summary)                   • Run anchor_locator (maps text anchor)
+            │                                             └─► If pure decompose or needs_decompose: END
+            │                                             └─► Else: Run tutor (drafts localized answer)
             │                                            • Run offtopic_eval (detects drift)
             │                                                     │
             └──────────────────────────┬──────────────────────────┘
@@ -129,9 +130,9 @@ graph TD
 ### Detailed Agent Nodes
 1.  **`intent_router` (Intent Classifier):** A lightweight agent that inspects input fields and validates user intention (`overview`, `followup`, `decompose`, `tree_writer`) without invoking expensive LLM cycles.
 2.  **`decomposer` (Query Decomposer):** When a user inputs a broad or multi-part query, this node breaks it down into structured, simpler sub-questions (`decomposed_questions`) to prevent cognitive overload.
-3.  **`anchor_locator` (Context Anchor):** Scans the original learning document or parent text, matches the question to its precise source section, and computes confidence scores. If the question requires multi-part answers, it sets `needs_decomposition=True` to trigger sub-node partitioning.
-4.  **`tutor` (Explainer Agent):** The pedagogical core. It aggregates localized context, parent node properties, and study configurations to draft tailored, engaging educational responses formatted in clean Markdown.
-5.  **`offtopic_eval` (Drift Detector):** Evaluates whether the current conversational branch has wandered outside the learning material's scope. If so, it flags the state with `is_off_topic=True` and drafts a custom, encouraging refocus nudge.
+3.  **`anchor_locator` (Context Anchor):** Scans the original learning document, matches the question to its source section, and computes confidence scores. It supports **Early Exit Optimization**: if the graph is in pure decomposition mode (`mode == "decompose"`), it terminates immediately after this node to avoid redundant LLM executions.
+4.  **`tutor` (Explainer Agent):** The pedagogical core. It aggregates context and drafts engaging educational responses in Markdown. During `overview` mode, it **automatically extracts a concise `document_summary`** and stores it in the state, which is used as a highly optimized, cost-efficient reference for downstream off-topic detection.
+5.  **`offtopic_eval` (Drift Detector):** Evaluates if the current query drifts from the document's core scope (referenced via the saved `document_summary`). It implements **Off-topic Inheritance**: any sub-questions asked on a parent node that is already off-topic automatically inherit the off-topic state, ensuring visual and interactive consistency.
 6.  **`tree_writer` (State Manager):** Programmatically constructs, structures, and modifies the Focus Tree schema inside the global `AgentState`.
 
 ---
