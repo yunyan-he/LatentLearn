@@ -60,8 +60,8 @@ def route_after_intent(state: AgentState) -> str:
 
 
 def route_after_locator(state: AgentState) -> str:
-    """anchor_locator 后的路由：需要拆解 → END（由 FastAPI 返回 plan），否则继续 tutor"""
-    if state.get("needs_decomposition", False):
+    """anchor_locator 后的路由：处于纯拆解模式(decompose)或需要拆解 → END，否则继续 tutor"""
+    if state.get("mode") == "decompose" or state.get("needs_decomposition", False):
         return END
     return "tutor"
 
