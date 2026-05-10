@@ -20,4 +20,5 @@ agent/.env.agent
 # LangGraph CLI & Studio temporary files
 .langgraph_api/
 .langgraph/
+docs/*
 
