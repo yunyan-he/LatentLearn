@@ -187,7 +187,7 @@ def build_followup_prompt(
             "User is currently focused on: [Anchor text or current section]\n"
             "User's query: [userQuery]\n\n"
             "Please answer the user's question in Markdown prose, not JSON. If and only if the question is clearly unrelated to the "
-            "current document or learning path, answer normally, but at the very end append a paragraph starting "
+            "current document, answer normally, but at the very end append a paragraph starting "
             "with [OFFTOPIC] tag to gently guide the user back (one sentence, polite, not forceful).\n"
             "For related German grammar follow-ups, do not use [OFFTOPIC]. Crucial: You MUST respond in English."
         )
@@ -197,7 +197,7 @@ def build_followup_prompt(
             "学习路径：[从根节点到当前节点的问答历史]\n"
             "用户现在聚焦于：[锚点文字或当前章节]\n"
             "用户的问题：[userQuery]\n\n"
-            "请用 Markdown 正文回答用户的问题，不要输出 JSON。如果且仅当问题明显与当前文档或学习路径无关，"
+            "请用 Markdown 正文回答用户的问题，不要输出 JSON。如果且仅当问题明显与当前文档无关，"
             "正常回答，但在最后用一段以 [OFFTOPIC] 标记的文字，"
             "引导用户回到当前学习内容（一句话，轻柔，不强迫）。\n"
             "如果是相关语法追问，不要使用 [OFFTOPIC]。注意：请使用中文进行回答。"
