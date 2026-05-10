@@ -47,10 +47,16 @@ const markdownComponents: Components = {
 function preprocessMarkdownMath(content: string): string {
   if (!content) return "";
   return content
-    // 将单独占一行的单美元符号 $ 替换为双美元符号 $$，防止其被误判为普通文本与多行行内公式
-    .replace(/(?:^|\n)\s*\$\s*(?:\n|$)/g, "\n$$\n")
-    .replace(/\\\[/g, "\n$$\n")
-    .replace(/\\\]/g, "\n$$\n")
+    // 将单独占一行的单美元符号 $ 替换为双美元符号 $$，同时保留其行首缩进，防止破坏 Markdown 列表结构而导致后续内容变成代码块
+    // 注意：在 JS 的 .replace() 中，要输出两个美元符号 '$$'，必须在替换字符串中写入四个美元符号 '$$$$'
+    .replace(/((?:^|\r?\n)[ \t]*)\$[ \t]*(?=\r?\n|$)/g, "$1$$$$")
+    // 修复大模型在列表子项中误用 4 个及以上空格缩进，导致其被 Markdown 误判为“缩进代码块”的 Bug
+    .replace(/(?:^|\r?\n) {4,}([-*+]\s|\d+\.\s)/g, (match, p1) => {
+      const newline = match.startsWith("\r\n") ? "\r\n" : (match.startsWith("\n") ? "\n" : "");
+      return newline + "  " + p1;
+    })
+    .replace(/\\\[/g, "\n$$$$\n")
+    .replace(/\\\]/g, "\n$$$$\n")
     .replace(/\\\(/g, " $ ")
     .replace(/\\\)/g, " $ ");
 }
