@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { createTopicDocument, parseMarkdownFile } from "@/lib/document";
-import { decomposeQuery, planTreeMounts, streamFollowUp, streamInitialOverview } from "@/lib/llm-client";
+import { decomposeQuery, planTreeMounts, streamFollowUp, streamInitialOverview, summarizePath } from "@/lib/llm-client";
 import { parseOffTopic } from "@/lib/mock-ai";
-import type { AnswerState, BubbleNode, DecomposedQuestion, LearningDocument, QuestionPlan, QuoteRef } from "@/lib/types";
+import type { AnswerState, BubbleNode, DecomposedQuestion, LearningDocument, MemorySummary, QuestionPlan, QuoteRef } from "@/lib/types";
 import { saveSession, getSession } from "@/lib/storage";
 
 interface LearningStore {
@@ -33,6 +33,8 @@ interface LearningStore {
 }
 
 const LearningContext = createContext<LearningStore | null>(null);
+const MEMORY_SUMMARY_PATH_THRESHOLD = 6;
+const RECENT_CONTEXT_NODES = 4;
 
 export function LearningProvider({ children }: { children: React.ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -41,8 +43,10 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [answerState, setAnswerState] = useState<AnswerState>({ status: "idle" });
   const [pendingPlan, setPendingPlan] = useState<QuestionPlan | null>(null);
+  const [memorySummary, setMemorySummary] = useState<MemorySummary | null>(null);
   const [language, setLanguage] = useState<"en" | "zh">("en");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const summarizingRef = useRef(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -74,10 +78,11 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         document,
         nodes,
         focusId,
+        memorySummary,
         updatedAt: Date.now()
       }).catch(console.error);
     }
-  }, [sessionId, document, nodes, focusId]);
+  }, [sessionId, document, nodes, focusId, memorySummary]);
 
   const getNode = useCallback((nodeId: string) => nodes.find((node) => node.id === nodeId), [nodes]);
 
@@ -133,6 +138,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     setDocument(nextDocument);
     setNodes([root]);
     setFocusId(rootId);
+    setMemorySummary(null);
     setAnswerState({ status: "streaming", nodeId: rootId, label: language === "en" ? "Generating Overview..." : "正在生成总览" });
 
     abortControllerRef.current = new AbortController();
@@ -158,6 +164,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       setDocument(session.document);
       setNodes(session.nodes);
       setFocusId(session.focusId);
+      setMemorySummary(session.memorySummary ?? null);
       setAnswerState({ status: "idle" });
       setPendingPlan(null);
     }
@@ -170,6 +177,7 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     setFocusId(null);
     setAnswerState({ status: "idle" });
     setPendingPlan(null);
+    setMemorySummary(null);
   }, []);
 
   const askQuestion: LearningStore["askQuestion"] = useCallback(
@@ -224,29 +232,42 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
 
       let raw = "";
       const path = getPath(parentId);
+      const contextPath = buildContextPath(path, memorySummary);
+      let finalParsed = parseOffTopic(raw);
+      let completed = false;
       try {
-        for await (const chunk of streamFollowUp(document, path, cleaned, anchorText, {
+        for await (const chunk of streamFollowUp(document, contextPath, cleaned, anchorText, {
           signal: abortControllerRef.current.signal,
           language,
           skipDecomposition: shouldSkipAnswerDecomposition,
           threadId: sessionId ?? undefined
         })) {
           raw += chunk;
-          const parsed = parseOffTopic(raw);
+          finalParsed = parseOffTopic(raw);
           updateNode(nodeId, {
-            aiResponse: parsed.answer,
-            isOffTopic: parsed.isOffTopic,
-            offTopicHint: parsed.hint
+            aiResponse: finalParsed.answer,
+            isOffTopic: finalParsed.isOffTopic,
+            offTopicHint: finalParsed.hint
           });
         }
+        completed = true;
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           updateNode(nodeId, { aiResponse: formatLlmError(error) });
         }
       }
       setAnswerState({ status: "idle" });
+      if (completed && finalParsed.answer) {
+        const completedNode: BubbleNode = {
+          ...node,
+          aiResponse: finalParsed.answer,
+          isOffTopic: finalParsed.isOffTopic,
+          offTopicHint: finalParsed.hint
+        };
+        void refreshMemorySummaryIfNeeded([...path, completedNode], language, sessionId ?? undefined, memorySummary, summarizingRef, setMemorySummary);
+      }
     },
-    [appendChild, document, focusId, getPath, updateNode, language, getNode, nodes, sessionId]
+    [appendChild, document, focusId, getPath, updateNode, language, getNode, nodes, sessionId, memorySummary]
   );
 
   const retryNode = useCallback(async (nodeId: string) => {
@@ -262,6 +283,9 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
 
     abortControllerRef.current = new AbortController();
     let response = "";
+    let retryPath: BubbleNode[] | null = null;
+    let retryParsed = parseOffTopic(response);
+    let completed = false;
     try {
       if (node.parentId === null) {
         for await (const chunk of streamInitialOverview(document, { signal: abortControllerRef.current.signal, language, threadId: sessionId ?? undefined })) {
@@ -270,24 +294,36 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         const path = getPath(node.parentId);
-        for await (const chunk of streamFollowUp(document, path, node.userQuery, node.anchorText || undefined, {
+        retryPath = path;
+        const contextPath = buildContextPath(path, memorySummary);
+        for await (const chunk of streamFollowUp(document, contextPath, node.userQuery, node.anchorText || undefined, {
           signal: abortControllerRef.current.signal,
           language,
           skipDecomposition: true,
           threadId: sessionId ?? undefined
         })) {
           response += chunk;
-          const parsed = parseOffTopic(response);
-          updateNode(nodeId, { aiResponse: parsed.answer, isOffTopic: parsed.isOffTopic, offTopicHint: parsed.hint });
+          retryParsed = parseOffTopic(response);
+          updateNode(nodeId, { aiResponse: retryParsed.answer, isOffTopic: retryParsed.isOffTopic, offTopicHint: retryParsed.hint });
         }
       }
+      completed = true;
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         updateNode(nodeId, { aiResponse: formatLlmError(error) });
       }
     }
     setAnswerState({ status: "idle" });
-  }, [document, getNode, getPath, updateNode, stopStreaming, language, sessionId]);
+    if (completed && retryPath && retryParsed.answer) {
+      const completedNode: BubbleNode = {
+        ...node,
+        aiResponse: retryParsed.answer,
+        isOffTopic: retryParsed.isOffTopic,
+        offTopicHint: retryParsed.hint
+      };
+      void refreshMemorySummaryIfNeeded([...retryPath, completedNode], language, sessionId ?? undefined, memorySummary, summarizingRef, setMemorySummary);
+    }
+  }, [document, getNode, getPath, updateNode, stopStreaming, language, sessionId, memorySummary]);
 
   const confirmDecomposition = useCallback(
     async (questions: DecomposedQuestion[]) => {
@@ -388,6 +424,70 @@ export function useLearning() {
   const store = useContext(LearningContext);
   if (!store) throw new Error("useLearning must be used inside LearningProvider");
   return store;
+}
+
+function buildContextPath(path: BubbleNode[], memory: MemorySummary | null) {
+  if (!memory || path.length <= MEMORY_SUMMARY_PATH_THRESHOLD) return path;
+  return [memoryToBubbleNode(memory), ...path.slice(-RECENT_CONTEXT_NODES)];
+}
+
+function memoryToBubbleNode(memory: MemorySummary): BubbleNode {
+  const understood = memory.what_understood.length ? memory.what_understood.map((item) => `- ${item}`).join("\n") : "- None captured yet.";
+  const openQuestions = memory.open_questions.length ? memory.open_questions.map((item) => `- ${item}`).join("\n") : "- None captured yet.";
+  const suggested = memory.suggested_nodes?.length ? memory.suggested_nodes.map((item) => `- ${item}`).join("\n") : "- None captured yet.";
+
+  return {
+    id: "memory-summary",
+    parentId: null,
+    userQuery: "Long-term learning memory summary",
+    aiResponse: [
+      "Compressed prior learning path:",
+      "",
+      `Summary: ${memory.summary}`,
+      "",
+      "What the learner appears to understand:",
+      understood,
+      "",
+      "Open questions:",
+      openQuestions,
+      "",
+      `Current confusion: ${memory.current_confusion || "None captured yet."}`,
+      "",
+      "Suggested next nodes:",
+      suggested
+    ].join("\n"),
+    isOffTopic: false,
+    resolved: false,
+    createdAt: new Date(memory.updatedAt ?? Date.now()),
+    children: []
+  };
+}
+
+async function refreshMemorySummaryIfNeeded(
+  path: BubbleNode[],
+  language: "en" | "zh",
+  threadId: string | undefined,
+  currentMemory: MemorySummary | null,
+  summarizingRef: MutableRefObject<boolean>,
+  setMemorySummary: (summary: MemorySummary) => void
+) {
+  if (path.length < MEMORY_SUMMARY_PATH_THRESHOLD || summarizingRef.current) return;
+  const lastNode = path[path.length - 1];
+  if (!lastNode || currentMemory?.coveredNodeId === lastNode.id) return;
+
+  summarizingRef.current = true;
+  try {
+    const next = await summarizePath(path, language, threadId);
+    setMemorySummary({
+      ...next,
+      coveredNodeId: lastNode.id,
+      updatedAt: Date.now()
+    });
+  } catch (error) {
+    console.warn("Memory summarization failed", error);
+  } finally {
+    summarizingRef.current = false;
+  }
 }
 
 

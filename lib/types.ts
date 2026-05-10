@@ -51,6 +51,16 @@ export interface QuestionPlan {
   questions: DecomposedQuestion[];
 }
 
+export interface MemorySummary {
+  what_understood: string[];
+  open_questions: string[];
+  current_confusion?: string;
+  suggested_nodes?: string[];
+  summary: string;
+  coveredNodeId?: string | null;
+  updatedAt?: number;
+}
+
 export interface QuoteRef {
   nodeId: string;
   text: string;

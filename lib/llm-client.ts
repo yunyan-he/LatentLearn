@@ -1,4 +1,4 @@
-import type { BubbleNode, DecomposedQuestion, LearningDocument, QuoteRef, QuestionPlan, TreeMountPlan } from "@/lib/types";
+import type { BubbleNode, DecomposedQuestion, LearningDocument, MemorySummary, QuoteRef, QuestionPlan, TreeMountPlan } from "@/lib/types";
 
 export async function* streamInitialOverview(document: LearningDocument, options?: { signal?: AbortSignal; language?: "en" | "zh"; threadId?: string }): AsyncGenerator<string> {
   yield* streamFromApi("/api/llm/overview", { document, language: options?.language, threadId: options?.threadId }, options);
@@ -54,6 +54,19 @@ export async function planTreeMounts(
 
   if (!response.ok) throw new Error(await response.text());
   return (await response.json()) as TreeMountPlan;
+}
+
+export async function summarizePath(path: BubbleNode[], language?: "en" | "zh", threadId?: string): Promise<MemorySummary> {
+  const response = await fetch("/api/llm/summarize-path", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ path, language, threadId })
+  });
+
+  if (!response.ok) throw new Error(await response.text());
+  return (await response.json()) as MemorySummary;
 }
 
 async function* streamFromApi(path: string, body: unknown, options?: { signal?: AbortSignal }): AsyncGenerator<string> {

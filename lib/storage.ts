@@ -1,10 +1,11 @@
-import type { BubbleNode, LearningDocument } from "@/lib/types";
+import type { BubbleNode, LearningDocument, MemorySummary } from "@/lib/types";
 
 export interface LearningSession {
   id: string;
   document: LearningDocument;
   nodes: BubbleNode[];
   focusId: string | null;
+  memorySummary?: MemorySummary | null;
   updatedAt: number;
 }
 
