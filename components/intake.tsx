@@ -16,9 +16,14 @@ const translations = {
     dragTitle: "Drag and drop Markdown file",
     dragSubtitle: "or click to choose local .md file",
     topicLabel: "Or enter a topic directly",
-    placeholder: "e.g. Transformer Attention Mechanism",
+    placeholder: "e.g. Descartes' mind-body dualism and the hard problem of consciousness",
     startButton: "Start Learning",
-    onlyMarkdown: "Currently only Markdown (.md) files are supported."
+    onlyMarkdown: "Currently only Markdown (.md) files are supported.",
+    tryIt: "Quick Try:",
+    tryTopics: [
+      "Descartes' mind-body dualism",
+      "Impact of the Enlightenment on modern democracy"
+    ]
   },
   zh: {
     tagline: "LatentLearn",
@@ -27,9 +32,14 @@ const translations = {
     dragTitle: "拖入 Markdown 文件",
     dragSubtitle: "或点击选择本地 .md 文件",
     topicLabel: "直接输入主题",
-    placeholder: "我想学 Transformer 的注意力机制",
+    placeholder: "例如：苏轼《赤壁赋》中的儒释道融合与人生哲学",
     startButton: "开始学习",
-    onlyMarkdown: "目前只支持 Markdown (.md) 文件。"
+    onlyMarkdown: "目前只支持 Markdown (.md) 文件。",
+    tryIt: "一键快速体验：",
+    tryTopics: [
+      "苏轼《赤壁赋》中的人生哲学",
+      "启蒙运动对现代民主制度的影响"
+    ]
   }
 };
 
@@ -129,9 +139,24 @@ export function Intake({ busy, onStart }: IntakeProps) {
                 }
               }}
             />
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted">{t.tryIt}</span>
+              {t.tryTopics.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setTopic(item);
+                  }}
+                  className="rounded-full bg-mist border border-line px-2.5 py-1 text-muted hover:border-focus hover:text-focus transition-all duration-200 active:scale-95"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
             <button
               data-testid="start-learning"
-              className="mt-4 rounded-md bg-ink px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-4 rounded-md bg-ink px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40 hover:bg-ink/90 transition"
               type="submit"
               disabled={busy || !topic.trim()}
             >
