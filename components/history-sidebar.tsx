@@ -26,6 +26,11 @@ export function HistorySidebar({
   const { language } = useLearning();
   const [sessions, setSessions] = useState<SessionMetadata[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -106,7 +111,7 @@ export function HistorySidebar({
                     {session.title}
                   </p>
                   <p className="mt-1 text-xs text-muted">
-                    {new Date(session.updatedAt).toLocaleString(language === "en" ? "en-US" : "zh-CN")}
+                    {mounted ? new Date(session.updatedAt).toLocaleString(language === "en" ? "en-US" : "zh-CN") : ""}
                   </p>
                   
                   <button
