@@ -3,6 +3,8 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 import { Components } from "react-markdown";
 
@@ -38,14 +40,23 @@ const markdownComponents: Components = {
   td: ({ children }) => <td className="border-b border-line px-3 py-2 align-top">{children}</td>
 };
 
+function preprocessMarkdownMath(content: string): string {
+  if (!content) return "";
+  return content
+    .replace(/\\\[/g, "\n$$\n")
+    .replace(/\\\]/g, "\n$$\n")
+    .replace(/\\\(/g, " $ ")
+    .replace(/\\\)/g, " $ ");
+}
+
 export function MarkdownAnswer({ content }: { content: string }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeRaw]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeRaw, rehypeKatex]}
       components={markdownComponents}
     >
-      {content}
+      {preprocessMarkdownMath(content)}
     </ReactMarkdown>
   );
 }
