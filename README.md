@@ -26,6 +26,14 @@ In a linear thread, this "rabbit hole" exploration creates two severe problems:
 
 ---
 
+## 📺 Product Demonstration
+
+> [!NOTE]
+> **Video and Animated GIF demonstrations are currently being recorded.**
+> Once finalized, an interactive walk-through showing the fluid glassmorphism transitions, reactive side-drawer tree nodes, inline highlighting triggers, and off-topic notification alerts will be displayed right here!
+
+---
+
 ## 🛠️ Technical Stack & Roadmap (技术路线)
 
 LatentLearn is architected as an decoupled, event-driven system combining high-performance Python agents with a highly reactive, responsive React interface.
