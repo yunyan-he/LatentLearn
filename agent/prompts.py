@@ -167,6 +167,7 @@ def build_followup_prompt(
     user_query: str,
     anchor_text: str | None = None,
     language: str = "en",
+    document_summary: str | None = None,
 ) -> str:
     retained = trim_path_for_context(path)
     history_parts = []
@@ -205,8 +206,11 @@ def build_followup_prompt(
 
     focus = anchor_text or (path[-1]["userQuery"] if path else document["title"])
 
+    doc_summary_part = f"Core Document Summary:\n{document_summary}\n\n" if document_summary else ""
+
     return (
         f"{instruction}\n\n"
+        f"{doc_summary_part}"
         f"Current learning context:\n{select_relevant_content(document['content'], anchor_text)}\n\n"
         f"Learning path:\n{history}\n\n"
         f"User is currently focused on:\n{focus}\n\n"

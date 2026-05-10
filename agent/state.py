@@ -96,3 +96,4 @@ class AgentState(TypedDict):
     answer: str           # 完整回答文本（流式场景下由 tutor node 构建）
     is_off_topic: bool
     off_topic_hint: str | None
+    document_summary: NotRequired[str | None]
