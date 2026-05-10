@@ -268,6 +268,14 @@ function TreeNode({
           {node.userQuery}
         </button>
 
+        {node.resolved && (
+          <span className="shrink-0 flex size-4 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 animate-grow" title={language === "en" ? "Resolved" : "已完成"}>
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </span>
+        )}
+
         {children.length > 0 && (
           <span className="shrink-0 text-[10px] font-medium text-muted bg-paper px-1.5 rounded">
             {children.length}

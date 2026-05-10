@@ -352,8 +352,26 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   );
 
   const toggleResolved = useCallback(
-    (nodeId: string) => updateNode(nodeId, (node) => ({ resolved: !node.resolved })),
-    [updateNode]
+    (nodeId: string) => {
+      setNodes((current) => {
+        const targetNode = current.find((n) => n.id === nodeId);
+        if (!targetNode) return current;
+
+        const nextResolved = !targetNode.resolved;
+
+        if (nextResolved && focusId === nodeId && targetNode.parentId) {
+          setFocusId(targetNode.parentId);
+        }
+
+        return current.map((n) => {
+          if (n.id === nodeId) {
+            return { ...n, resolved: nextResolved };
+          }
+          return n;
+        });
+      });
+    },
+    [focusId]
   );
 
   const jumpToParent = useCallback(() => {
