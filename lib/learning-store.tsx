@@ -30,6 +30,7 @@ interface LearningStore {
   jumpToLastOnTopic(): void;
   getPath(nodeId: string): BubbleNode[];
   getNode(nodeId: string): BubbleNode | undefined;
+  deleteNode(nodeId: string): void;
 }
 
 const LearningContext = createContext<LearningStore | null>(null);
@@ -368,6 +369,71 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
     if (target) setFocusId(target.id);
   }, [focusId, getPath]);
 
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      const nodeToDelete = nodes.find((n) => n.id === nodeId);
+      if (!nodeToDelete || !nodeToDelete.parentId) {
+        return;
+      }
+
+      setNodes((current) => {
+        const getDescendants = (id: string, list: BubbleNode[]): string[] => {
+          const nodeMap = new Map(list.map((n) => [n.id, n]));
+          const result: string[] = [];
+          const queue = [id];
+          while (queue.length > 0) {
+            const currId = queue.shift()!;
+            const curr = nodeMap.get(currId);
+            if (curr) {
+              for (const childId of curr.children) {
+                result.push(childId);
+                queue.push(childId);
+              }
+            }
+          }
+          return result;
+        };
+
+        const descendants = getDescendants(nodeId, current);
+        const toDelete = new Set([nodeId, ...descendants]);
+
+        return current
+          .filter((n) => !toDelete.has(n.id))
+          .map((n) => {
+            if (n.children.includes(nodeId)) {
+              return { ...n, children: n.children.filter((cid) => cid !== nodeId) };
+            }
+            return n;
+          });
+      });
+
+      if (focusId) {
+        const getDescendants = (id: string, list: BubbleNode[]): string[] => {
+          const nodeMap = new Map(list.map((n) => [n.id, n]));
+          const result: string[] = [];
+          const queue = [id];
+          while (queue.length > 0) {
+            const currId = queue.shift()!;
+            const curr = nodeMap.get(currId);
+            if (curr) {
+              for (const childId of curr.children) {
+                result.push(childId);
+                queue.push(childId);
+              }
+            }
+          }
+          return result;
+        };
+        const descendants = getDescendants(nodeId, nodes);
+        const deletedSet = new Set([nodeId, ...descendants]);
+        if (deletedSet.has(focusId)) {
+          setFocusId(nodeToDelete.parentId);
+        }
+      }
+    },
+    [nodes, focusId]
+  );
+
   const value = useMemo<LearningStore>(
     () => ({
       sessionId,
@@ -391,7 +457,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       jumpToParent,
       jumpToLastOnTopic,
       getPath,
-      getNode
+      getNode,
+      deleteNode
     }),
     [
       sessionId,
@@ -413,7 +480,8 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
       pendingPlan,
       toggleResolved,
       language,
-      handleSetLanguage
+      handleSetLanguage,
+      deleteNode
     ]
   );
 

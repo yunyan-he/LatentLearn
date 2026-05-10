@@ -229,8 +229,8 @@ function Workspace() {
             }}
             onQuote={(text, mode, nodeId) => {
               const prefix = language === "en"
-                ? (mode === "explain" ? "Explain this: " : mode === "expand" ? "Expand on this: " : "My question about this: ")
-                : (mode === "explain" ? "解释这句话：" : mode === "expand" ? "展开讲讲：" : "我对此的疑问：");
+                ? (mode === "explain" ? "Explain this" : mode === "expand" ? "Expand on this" : "My question about this: ")
+                : (mode === "explain" ? "解释这句话" : mode === "expand" ? "展开讲讲" : "我对此的疑问：");
               setQuoteRefs((prev) => [...prev, { nodeId, text }]);
               setDraft((prev) => {
                 const addition = `> ${text}\n${prefix}`;

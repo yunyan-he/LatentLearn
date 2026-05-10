@@ -14,8 +14,9 @@ interface ConversationProps {
 }
 
 export function Conversation({ path, focusId, onJump, registerNode, onQuote }: ConversationProps) {
-  const { nodes, answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode, setFocus, language } = useLearning();
+  const { nodes, answerState, toggleResolved, jumpToLastOnTopic, stopStreaming, retryNode, setFocus, deleteNode, language } = useLearning();
   const [selection, setSelection] = useState<{ text: string; x: number; y: number; nodeId: string } | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     const close = () => setSelection(null);
@@ -97,6 +98,47 @@ export function Conversation({ path, focusId, onJump, registerNode, onQuote }: C
           </div>
           {answerState.status !== "streaming" || answerState.nodeId !== node.id ? (
             <div className="mt-2 flex justify-end gap-2">
+              {node.parentId ? (
+                confirmDeleteId === node.id ? (
+                  <div className="flex items-center gap-1.5 rounded bg-red-50 border border-red-100 px-1.5 py-0.5 animate-grow">
+                    <span className="text-[10px] text-red-600 font-medium">
+                      {language === "en" ? "Sure?" : "确认删除吗？"}
+                    </span>
+                    <button
+                      className="rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-red-700 transition-colors cursor-pointer"
+                      type="button"
+                      onClick={() => {
+                        deleteNode(node.id);
+                        setConfirmDeleteId(null);
+                      }}
+                    >
+                      {language === "en" ? "Yes" : "确认"}
+                    </button>
+                    <button
+                      className="rounded bg-white border border-red-200 px-1.5 py-0.5 text-[10px] font-medium text-red-700 hover:bg-red-100 transition-colors cursor-pointer"
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      {language === "en" ? "No" : "取消"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="flex items-center gap-1.5 rounded border border-transparent px-2 py-1 text-xs text-muted transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 cursor-pointer"
+                    type="button"
+                    onClick={() => setConfirmDeleteId(node.id)}
+                    title={language === "en" ? "Delete this branch and its sub-branches" : "删除此分支及其所有子分支"}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      <line x1="10" y1="11" x2="10" y2="17"></line>
+                      <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>
+                    {language === "en" ? "Delete" : "删除"}
+                  </button>
+                )
+              ) : null}
               <button
                 className="flex items-center gap-1.5 rounded border border-transparent px-2 py-1 text-xs text-muted transition-colors hover:border-line hover:bg-mist hover:text-ink"
                 type="button"

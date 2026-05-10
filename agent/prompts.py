@@ -187,9 +187,13 @@ def build_followup_prompt(
             "Learning path: [Q&A history from root to current node]\n"
             "User is currently focused on: [Anchor text or current section]\n"
             "User's query: [userQuery]\n\n"
-            "Please answer the user's question in Markdown prose, not JSON. If and only if the question is clearly unrelated to the "
-            "current document, answer normally, but at the very end append a paragraph starting "
-            "with [OFFTOPIC] tag to gently guide the user back (one sentence, polite, not forceful).\n"
+            "Please answer the user's question in Markdown prose, not JSON. "
+            "If and only if the question is clearly unrelated to the core disciplinary scope and academic domain of the current document "
+            "(for example, if the document is about philosophy of mind/dualism, and the user asks about physical anatomy or modern medicine/biology "
+            "of the pineal gland, or if the user asks general trivia or programming unrelated to the document), answer normally, but "
+            "at the very end append a paragraph starting with [OFFTOPIC] tag to gently guide the user back (one sentence, polite, not forceful).\n"
+            "Note: Beware of keyword overlap bias! Even if keywords like 'pineal gland' are mentioned in the document in a philosophical context, "
+            "asking about modern biological anatomy/functions of that gland represents a drift in topic and discipline, and MUST be considered [OFFTOPIC].\n"
             "For related German grammar follow-ups, do not use [OFFTOPIC]. Crucial: You MUST respond in English."
         )
     else:
@@ -198,9 +202,10 @@ def build_followup_prompt(
             "学习路径：[从根节点到当前节点的问答历史]\n"
             "用户现在聚焦于：[锚点文字或当前章节]\n"
             "用户的问题：[userQuery]\n\n"
-            "请用 Markdown 正文回答用户的问题，不要输出 JSON。如果且仅当问题明显与当前文档无关，"
-            "正常回答，但在最后用一段以 [OFFTOPIC] 标记的文字，"
-            "引导用户回到当前学习内容（一句话，轻柔，不强迫）。\n"
+            "请用 Markdown 正文回答用户的问题，不要输出 JSON。如果且仅当问题明显与当前文档的核心学科领域和学术范围无关"
+            "（例如：文档探讨的是心灵哲学/二元论，而用户问到现代生物学/医学上的松果体解剖生理功能；或者用户问到与文档无关的编程、闲聊、常识等），"
+            "正常回答，但在最后用一段以 [OFFTOPIC] 标记的文字，引导用户回到当前学习内容（一句话，轻柔，不强迫）。\n"
+            "注意：防止关键词重合偏见！即使文档在哲学语境中提到了“松果体”，用户如果追问现代生物解剖学/医学层面的松果体功能，仍然属于学科领域偏离，必须被判定为 [OFFTOPIC]。\n"
             "如果是相关语法追问，不要使用 [OFFTOPIC]。注意：请使用中文进行回答。"
         )
 
