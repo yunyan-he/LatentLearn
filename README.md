@@ -281,3 +281,11 @@ Runs on [http://127.0.0.1:8100](http://127.0.0.1:8100).
 
 ## 👥 Contributors & Open Source
 Developed with ❤️ to empower minds that don't think in linear paths. Pull requests, design feedback, and feature suggestions are always welcome!
+
+---
+
+## 📜 Attribution Request
+
+If LatentLearn inspires your project, please consider mentioning **"Inspired by LatentLearn"** and linking back to this repository. 
+
+While this is not strictly required by the license, proper attribution is deeply appreciated and helps support non-linear study interfaces everywhere. 🌟
