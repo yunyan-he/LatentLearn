@@ -24,7 +24,11 @@ const markdownComponents: Components = {
     }
     return <code className={className}>{children}</code>;
   },
-  pre: ({ children }) => <pre className="my-4 overflow-x-auto rounded-md border border-line bg-ink p-4 text-sm leading-6 text-white">{children}</pre>,
+  pre: ({ children }) => (
+    <pre className="my-4 overflow-x-auto rounded-md border border-line bg-ink p-4 text-sm leading-6 text-white [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-inherit">
+      {children}
+    </pre>
+  ),
   hr: () => <hr className="my-6 border-line" />,
   a: ({ children, href }) => (
     <a className="text-focus underline underline-offset-4" href={href} target="_blank" rel="noreferrer">
@@ -43,6 +47,8 @@ const markdownComponents: Components = {
 function preprocessMarkdownMath(content: string): string {
   if (!content) return "";
   return content
+    // 将单独占一行的单美元符号 $ 替换为双美元符号 $$，防止其被误判为普通文本与多行行内公式
+    .replace(/(?:^|\n)\s*\$\s*(?:\n|$)/g, "\n$$\n")
     .replace(/\\\[/g, "\n$$\n")
     .replace(/\\\]/g, "\n$$\n")
     .replace(/\\\(/g, " $ ")
