@@ -2,6 +2,10 @@
 
 > **A Spatial, Non-Linear Learning Platform Tailored for Divergent Minds. Built with Next.js, FastAPI, and Stateful LangGraph Multi-Agent Orchestration.**
 
+### 🌐 Live Deployment (线上演示地址)
+- **Frontend Web App (Vercel)**: 🌍 [https://latent-learn.vercel.app](https://latent-learn.vercel.app)
+- **Backend Agent API (Hugging Face)**: 🤖 [https://howcloudy-latentlearn-agent.hf.space](https://howcloudy-latentlearn-agent.hf.space) | 🟢 [API Health Status](https://howcloudy-latentlearn-agent.hf.space/health)
+
 ---
 
 ## 🌟 The UX Paradigm: Breaking the Linear Trap
