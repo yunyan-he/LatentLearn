@@ -76,8 +76,7 @@ async function proxyToAgent(url: string, body: unknown) {
   const reader = upstream.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  let sawOffTopicMarker = false;
-  let recentText = "";
+  let fullStreamText = "";
 
   return new Response(
     new ReadableStream({
@@ -99,13 +98,16 @@ async function proxyToAgent(url: string, body: unknown) {
                 if (parsed.type === "chunk" && parsed.content) {
                   const clean = sanitizeAgentContent(parsed.content, true);
                   if (clean) {
-                    recentText = `${recentText}${clean}`.slice(-32);
-                    if (recentText.includes("[OFFTOPIC]")) sawOffTopicMarker = true;
+                    fullStreamText += clean;
                     controller.enqueue(encoder.encode(clean));
                   }
-                } else if (parsed.type === "metadata" && parsed.is_off_topic && !sawOffTopicMarker) {
-                  const hint = parsed.off_topic_hint ? ` ${parsed.off_topic_hint}` : "";
-                  controller.enqueue(encoder.encode(`\n\n[OFFTOPIC]${hint}`));
+                } else if (parsed.type === "metadata" && parsed.is_off_topic) {
+                  // 使用大小写无关的正则，精准检测流式正文里是否已经输出了 [OFFTOPIC] 标记
+                  const hasOffTopicMarker = /\[OFFTOPIC\]/i.test(fullStreamText);
+                  if (!hasOffTopicMarker) {
+                    const hint = parsed.off_topic_hint ? ` ${parsed.off_topic_hint}` : "";
+                    controller.enqueue(encoder.encode(`\n\n[OFFTOPIC]${hint}`));
+                  }
                 }
               } catch {
                 // non-JSON SSE line, skip
