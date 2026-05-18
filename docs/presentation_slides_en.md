@@ -148,7 +148,7 @@ style: |
 
 <div style="margin-top: 40px; font-size: 20px; color: #94a3b8;">
 
-  <strong>Tech Stack:</strong> Next.js / FastAPI / Stateful LangGraph / OpenRouter / DeepSeek<br>
+  <strong>Tech Stack:</strong> Next.js / FastAPI / Stateful LangGraph / Google AI Studio / Gemma 4<br>
   <strong>Target:</strong> 2026 AI Agent Innovation Pitch & Demo
 </div>
 
@@ -266,7 +266,7 @@ style: |
     <p style="margin: 8px 0; line-height: 1.5; color: #cbd5e1;">
       Stateful multi-agent DAG orchestration.<br>
       • <strong>Checkpointer System:</strong> Saves and resumes chat states on specific nodes.<br>
-      • <strong>OpenRouter Bindings:</strong> Integrates high-performance remote LLM providers securely.
+      • <strong>Google AI Studio:</strong> Securely schedules Google's premium Gemma 4 model.
     </p>
   </div>
 </div>

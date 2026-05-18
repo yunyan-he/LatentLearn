@@ -148,7 +148,7 @@ style: |
 
 <div style="margin-top: 40px; font-size: 20px; color: #94a3b8;">
   <strong>主讲人：</strong> 项目团队<br>
-  <strong>技术栈：</strong> Next.js / FastAPI / Stateful LangGraph / OpenRouter / DeepSeek<br>
+  <strong>技术栈：</strong> Next.js / FastAPI / Stateful LangGraph / Google AI Studio / Gemma 4<br>
   <strong>定位：</strong> 2026 创新 AI 智能体应用研究与演示
 </div>
 
@@ -268,7 +268,7 @@ style: |
     <p style="margin: 8px 0; line-height: 1.5; color: #cbd5e1;">
       基于有向无环图 (DAG) 的多智能体系统。<br>
       • <strong>线程检查点 (Checkpointer)：</strong> 自动对每一次探索生成记忆存档。<br>
-      • <strong>外置算力：</strong> 深度绑定 OpenRouter 提供高性价比 LLM。
+      • <strong>外置算力：</strong> 深度对接 Google AI Studio 并调度 Gemma 4 模型。
     </p>
   </div>
 </div>

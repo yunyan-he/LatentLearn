@@ -100,7 +100,7 @@ marp --pptx presentation_slides.md -o LatentLearn_Presentation.pptx
   > 我们的系统采用了三层架构设计：
   > 1. **Next.js 前端**：作为高 reactive 的视图层，使用 App Router 与 TypeScript 5 严格类型约束，构建了完备的 Server-Sent Events 流式解析引擎和画布位置 Reducer，确保卡片平移与树状态更新的毫秒级同步。
   > 2. **FastAPI 异步 API 网关**：负责高并发长连接。我们在网关中加入了输入安全沙箱，彻底清洗潜在的 XSS 注入和提示词攻击。
-  > 3. **LangGraph 状态机后端**：这是我们的大脑，采用有向无环图（DAG）和 Checkpointer 机制，对用户的多次探索进行分布式会话记忆追踪，并高效调用 OpenRouter 提供的顶级 LLM 服务。”
+  > 3. **LangGraph 状态机后端**：这是我们的大脑，采用有向无环图（DAG）和 Checkpointer 机制，对用户的多次探索进行分布式会话记忆追踪，并高效调用 Google AI Studio 提供的 Gemma 4 顶级大模型服务。”
 
 ---
 
