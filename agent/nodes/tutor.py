@@ -54,7 +54,7 @@ def tutor_node(state: AgentState) -> dict:
             HumanMessage(content=str(content))
         ]
         try:
-            summary_response = llm.invoke(summary_messages)
+            summary_response = llm.invoke(summary_messages, config={"tags": ["document_summary"]})
             summary_content = summary_response.content if hasattr(summary_response, "content") else str(summary_response)
             document_summary = str(summary_content).strip()
         except Exception:

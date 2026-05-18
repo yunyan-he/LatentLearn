@@ -128,6 +128,10 @@ async def _stream_graph_response(initial_state: AgentState, thread_id: str):
             node_name = metadata.get("langgraph_node")
             if node_name != "tutor":
                 continue
+            # 过滤掉总结调用的 stream，防止它污染前端的总览气泡
+            tags = event.get("tags", []) or []
+            if "document_summary" in tags:
+                continue
             chunk = event.get("data", {}).get("chunk")
             if chunk and hasattr(chunk, "content") and chunk.content:
                 yield _sse(json.dumps({"type": "chunk", "content": chunk.content}))
