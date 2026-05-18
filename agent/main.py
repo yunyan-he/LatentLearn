@@ -117,6 +117,12 @@ async def _stream_graph_response(initial_state: AgentState, thread_id: str):
     config = _make_config(thread_id)
     final_state: dict = {}
 
+    # 流式思考块 (Thinking Block) 实时过滤器的状态变量
+    accumulated = ""
+    has_thought = False
+    thought_ended = False
+    yielded_length = 0
+
     async for event in graph.astream_events(initial_state, config=config, version="v2"):
         kind = event.get("event", "")
 
@@ -134,7 +140,39 @@ async def _stream_graph_response(initial_state: AgentState, thread_id: str):
                 continue
             chunk = event.get("data", {}).get("chunk")
             if chunk and hasattr(chunk, "content") and chunk.content:
-                yield _sse(json.dumps({"type": "chunk", "content": chunk.content}))
+                accumulated += chunk.content
+
+                # A. 确定是否包含思考标签
+                if not has_thought and not thought_ended:
+                    if "<thought>" in accumulated or "<think>" in accumulated:
+                        has_thought = True
+                    elif len(accumulated) >= 30:
+                        # 积累了 30 个字仍无思考标签前缀，说明模型没有进入 Thinking 模式，直接放行
+                        thought_ended = True
+
+                # B. 如果在思考模式中，检测结束标签并做分割
+                if has_thought and not thought_ended:
+                    if "</thought>" in accumulated:
+                        thought_ended = True
+                        start_idx = accumulated.find("</thought>") + len("</thought>")
+                        to_yield = accumulated[start_idx:]
+                        if to_yield:
+                            yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
+                        yielded_length = len(accumulated)
+                    elif "</think>" in accumulated:
+                        thought_ended = True
+                        start_idx = accumulated.find("</think>") + len("</think>")
+                        to_yield = accumulated[start_idx:]
+                        if to_yield:
+                            yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
+                        yielded_length = len(accumulated)
+
+                # C. 如果已经退出思考模式，正常流式输出
+                if thought_ended:
+                    if len(accumulated) > yielded_length:
+                        to_yield = accumulated[yielded_length:]
+                        yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
+                        yielded_length = len(accumulated)
 
         # 图执行完毕，取最终 state
         elif kind == "on_chain_end" and event.get("name") == "LangGraph":

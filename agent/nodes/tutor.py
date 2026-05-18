@@ -26,6 +26,13 @@ from agent.prompts import (
 from agent.state import AgentState
 
 
+def clean_thought_tags(text: str) -> str:
+    import re
+    text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    return text.strip()
+
+
 def tutor_node(state: AgentState) -> dict:
     """LangGraph node：生成讲解 / 追问回答（完整文本，供非流式路径使用）"""
     document = state["document"]
@@ -60,7 +67,9 @@ def tutor_node(state: AgentState) -> dict:
         except Exception:
             document_summary = document.get("title", "")
 
-        return {"answer": str(content), "document_summary": document_summary}
+        cleaned_content = clean_thought_tags(str(content))
+        cleaned_summary = clean_thought_tags(document_summary)
+        return {"answer": cleaned_content, "document_summary": cleaned_summary}
 
     else:
         path = state.get("conversation_path", [])
@@ -75,4 +84,4 @@ def tutor_node(state: AgentState) -> dict:
         ]
         response = llm.invoke(messages)
         content = response.content if hasattr(response, "content") else str(response)
-        return {"answer": str(content)}
+        return {"answer": clean_thought_tags(str(content))}
