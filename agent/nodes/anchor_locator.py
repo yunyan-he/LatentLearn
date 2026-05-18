@@ -17,7 +17,7 @@ import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent.config import get_llm
+from agent.config import get_fast_llm
 from agent.prompts import build_anchor_locator_prompt, system_prompt_anchor_locator
 from agent.state import AgentState, AnchorLocation, DecomposedQuestion, DocumentSection
 
@@ -95,7 +95,7 @@ async def extract_anchor_from_section(section: DocumentSection, query: str, lang
     """
     Stage 2: 异步调用大模型，从选定的小节内容中提取出完全一致的原文子串。
     """
-    llm = get_llm()
+    llm = get_fast_llm()
     messages = [
         SystemMessage(content=system_prompt_anchor_locator(language)),
         HumanMessage(content=build_anchor_locator_prompt(section["content"], query, language)),

@@ -14,7 +14,7 @@ import re
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent.config import get_llm
+from agent.config import get_fast_llm
 from agent.prompts import build_tree_writer_prompt, system_prompt_decomposer
 from agent.state import AgentState, TreeMountDecision
 
@@ -31,7 +31,7 @@ def tree_writer_node(state: AgentState) -> dict:
     if not nodes or not questions:
         return {"tree_mounts": []}
 
-    llm = get_llm()
+    llm = get_fast_llm()
     messages = [
         SystemMessage(content=system_prompt_decomposer(language)),
         HumanMessage(content=build_tree_writer_prompt(nodes, questions, current_node_id, quote_refs, language)),

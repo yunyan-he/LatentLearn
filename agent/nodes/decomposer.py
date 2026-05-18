@@ -16,7 +16,7 @@ import time
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent.config import get_llm
+from agent.config import get_fast_llm
 from agent.prompts import build_decomposition_prompt, system_prompt_decomposer
 from agent.state import AgentState, DecomposedQuestion
 
@@ -29,7 +29,7 @@ def decomposer_node(state: AgentState) -> dict:
     query = state["user_query"]
     language = state.get("language", "en")
 
-    llm = get_llm()
+    llm = get_fast_llm()
     messages = [
         SystemMessage(content=system_prompt_decomposer(language)),
         HumanMessage(content=build_decomposition_prompt(document, query, language)),

@@ -15,7 +15,7 @@ import re
 from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent.config import get_llm
+from agent.config import get_fast_llm
 from agent.state import BubbleNode
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ async def summarize_path(path: list[BubbleNode], language: Literal["en", "zh"] =
         HumanMessage(content=human_content)
     ]
 
-    llm = get_llm()
+    llm = get_fast_llm()
     response = await llm.ainvoke(messages)
     raw_content = response.content if hasattr(response, "content") else str(response)
 
