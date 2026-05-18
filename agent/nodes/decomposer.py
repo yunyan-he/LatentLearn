@@ -74,7 +74,11 @@ def decomposer_node(state: AgentState) -> dict:
 
 
 def _parse_decomposition(content: str) -> dict:
-    """清理 LLM 输出中可能混入的 Markdown fence，然后解析 JSON"""
+    """清理 LLM 输出中可能混入的思考块和 Markdown fence，然后解析 JSON"""
+    # 移除思考模块
+    content = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE)
+
     cleaned = re.sub(r"^```json\s*", "", content.strip(), flags=re.IGNORECASE)
     cleaned = re.sub(r"^```\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"```$", "", cleaned.strip(), flags=re.IGNORECASE)

@@ -46,6 +46,10 @@ def tree_writer_node(state: AgentState) -> dict:
 
 
 def _parse_mounts(content: str, valid_node_ids: set[str | None], valid_question_ids: set[str | None]) -> list[TreeMountDecision]:
+    # 移除思考模块
+    content = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE)
+
     cleaned = re.sub(r"^```json\s*", "", content.strip(), flags=re.IGNORECASE)
     cleaned = re.sub(r"^```\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"```$", "", cleaned.strip(), flags=re.IGNORECASE)

@@ -77,6 +77,10 @@ def build_summarizer_prompt(path: list[BubbleNode]) -> str:
 
 def _parse_summarizer_json(content: str) -> dict:
     """清洗大模型输出并解析 JSON"""
+    # 移除思考模块
+    content = re.sub(r"<thought>.*?</thought>", "", content, flags=re.DOTALL | re.IGNORECASE)
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE)
+
     cleaned = re.sub(r"^```json\s*", "", content.strip(), flags=re.IGNORECASE)
     cleaned = re.sub(r"^```\s*", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"```$", "", cleaned.strip(), flags=re.IGNORECASE)
