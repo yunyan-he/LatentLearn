@@ -67,7 +67,7 @@ LatentLearn is architected as an decoupled, event-driven system combining high-p
 -  **Frontend:** Next.js 16 (App Router), TypeScript 5, Tailwind CSS, custom reactive state stores, SSE (Server-Sent Events) streaming.
 -  **Backend:** Python 3.10+, FastAPI (Asynchronous Web Gateway), Uvicorn.
 -  **Multi-Agent Orchestration:** LangGraph (Stateful, cyclic/acyclic graph execution), LangChain.
--  **LLM Layer:** OpenAI-compatible API bindings integrating remote GPU endpoints, OpenRouter, DeepSeek, and Qwen APIs.
+-  **LLM Layer:** Powered by Google's state-of-the-art **Gemma 4** open-weights models (using `google/gemma-4-31b-it` on OpenRouter, or locally via Ollama with `gemma4:31b` / `gemma4:e4b` for offline spatial learning).
 
 ### Evolutionary Roadmap
 -  [x] **Phase 1: Dual-Input Pipeline.** Robust file ingestion and automated topic-overview generator.
@@ -226,7 +226,7 @@ LLM_PROVIDER=openrouter
 LLM_API_KEY=your_api_key_here
 LLM_BASE_URL=https://openrouter.ai
 LLM_CHAT_COMPLETIONS_PATH=/api/v1/chat/completions
-LLM_MODEL=openai/gpt-oss-120b:free
+LLM_MODEL=google/gemma-4-31b-it:free
 
 # true: locks models to OpenRouter free models (ends with :free) for safety
 # false: unlocks official model IDs like deepseek-chat or qwen-plus
@@ -241,7 +241,7 @@ LLM_MAX_TOKENS=1800
 # API credentials for the LangGraph agent layer
 AGENT_LLM_API_KEY=your_api_key_here
 AGENT_LLM_BASE_URL=https://openrouter.ai/api/v1
-AGENT_LLM_MODEL=openai/gpt-oss-120b:free
+AGENT_LLM_MODEL=google/gemma-4-31b-it:free
 
 # Generator hyperparameters
 AGENT_LLM_TEMPERATURE=0.4
