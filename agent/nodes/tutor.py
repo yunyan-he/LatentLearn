@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent.config import get_fast_llm, get_llm
+from agent.config import get_fast_llm, get_llm, get_strong_llm
 from agent.prompts import (
     build_followup_prompt,
     build_overview_prompt,
@@ -33,13 +33,46 @@ def clean_thought_tags(text: str) -> str:
     return text.strip()
 
 
+def _document_size(document: dict) -> int:
+    title_size = len(str(document.get("title", "")))
+    body_size = len(str(document.get("content", "")))
+    structure_size = sum(len(str(section.get("content", ""))) for section in document.get("structure", []) if isinstance(section, dict))
+    return title_size + body_size + structure_size
+
+
+def _should_use_strong_tutor(state: AgentState) -> bool:
+    """Conservative workload router for paid/strong tutoring calls."""
+    import os
+
+    if os.environ.get("AGENT_LLM_AUTO_STRONG", "true").strip().lower() != "true":
+        return False
+
+    document = state.get("document", {})
+    query = str(state.get("user_query", ""))
+    path = state.get("conversation_path", [])
+    language = state.get("language", "en")
+
+    complex_markers = (
+        ("深入", "复杂", "推理", "证明", "严谨", "源码", "架构", "debug", "调试", "数学", "公式", "论文")
+        if language == "zh"
+        else ("deep", "complex", "reason", "prove", "rigorous", "source code", "architecture", "debug", "math", "formula", "paper")
+    )
+
+    return (
+        _document_size(document) > 12000
+        or len(query) > 500
+        or len(path) >= 5
+        or any(marker in query.lower() for marker in complex_markers)
+    )
+
+
 def tutor_node(state: AgentState) -> dict:
     """LangGraph node：生成讲解 / 追问回答（完整文本，供非流式路径使用）"""
     document = state["document"]
     language = state.get("language", "en")
     mode = state.get("mode", "followup")
 
-    llm = get_llm()
+    llm = get_strong_llm() if _should_use_strong_tutor(state) else get_llm()
 
     if mode == "overview":
         messages = [

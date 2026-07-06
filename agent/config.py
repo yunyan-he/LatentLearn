@@ -41,21 +41,32 @@ def _optional(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
-def _model_for_tier(tier: str) -> str:
-    env_name = f"AGENT_LLM_{tier.upper()}_MODEL"
-    configured = _optional(env_name)
+def _tier_env(tier: str, suffix: str, fallback_suffix: str | None = None) -> str:
+    configured = _optional(f"AGENT_LLM_{tier.upper()}_{suffix}")
     if configured:
         return configured
 
-    legacy_fast_model = _optional("AGENT_LLM_FAST_MODEL")
-    if tier == "fast" and legacy_fast_model:
-        return legacy_fast_model
+    fallback_name = f"AGENT_LLM_{fallback_suffix or suffix}"
+    fallback = _optional(fallback_name)
+    if fallback:
+        return fallback
 
-    default_model = _optional("AGENT_LLM_MODEL")
-    if default_model:
-        return default_model
+    raise RuntimeError(
+        f"Missing required environment variable: AGENT_LLM_{tier.upper()}_{suffix} or {fallback_name}\n"
+        f"Please set it in agent/.env.agent"
+    )
 
-    return _require("AGENT_LLM_BALANCED_MODEL")
+
+def _model_for_tier(tier: str) -> str:
+    return _tier_env(tier, "MODEL")
+
+
+def _api_key_for_tier(tier: str) -> str:
+    return _tier_env(tier, "API_KEY")
+
+
+def _base_url_for_tier(tier: str) -> str:
+    return _tier_env(tier, "BASE_URL")
 
 
 def _max_tokens_for_tier(tier: str, default: str) -> int:
@@ -66,10 +77,10 @@ def _temperature_for_tier(tier: str, default: str) -> float:
     return float(_optional(f"AGENT_LLM_{tier.upper()}_TEMPERATURE", _optional("AGENT_LLM_TEMPERATURE", default)))
 
 
-def _provider_headers() -> dict[str, str]:
+def _provider_headers(tier: str) -> dict[str, str]:
     default_headers: dict[str, str] = {}
-    http_referer = _optional("AGENT_LLM_HTTP_REFERER")
-    app_title = _optional("AGENT_LLM_APP_TITLE")
+    http_referer = _optional(f"AGENT_LLM_{tier.upper()}_HTTP_REFERER", _optional("AGENT_LLM_HTTP_REFERER"))
+    app_title = _optional(f"AGENT_LLM_{tier.upper()}_APP_TITLE", _optional("AGENT_LLM_APP_TITLE"))
     if http_referer:
         default_headers["HTTP-Referer"] = http_referer
     if app_title:
@@ -83,12 +94,12 @@ def get_llm_for_tier(tier: str) -> ChatOpenAI:
     if tier not in ("fast", "balanced", "strong"):
         raise ValueError(f"Unsupported LLM tier: {tier}")
 
-    api_key = _require("AGENT_LLM_API_KEY")
-    base_url = _require("AGENT_LLM_BASE_URL")
+    api_key = _api_key_for_tier(tier)
+    base_url = _base_url_for_tier(tier)
     model = _model_for_tier(tier)
     temperature = _temperature_for_tier(tier, "0.2" if tier == "fast" else "0.4")
     max_tokens = _max_tokens_for_tier(tier, "1000" if tier == "fast" else "2000")
-    default_headers = _provider_headers()
+    default_headers = _provider_headers(tier)
 
     return ChatOpenAI(
         model=model,
@@ -118,18 +129,23 @@ def get_strong_llm() -> ChatOpenAI:
 
 def get_settings() -> dict:
     """返回当前配置摘要（用于 /health 接口展示，不含敏感 key）"""
-    base_url = os.environ.get("AGENT_LLM_BASE_URL", "未配置")
+    base_urls = {
+        "fast": _base_url_for_tier("fast") if (_optional("AGENT_LLM_FAST_API_KEY") or _optional("AGENT_LLM_API_KEY")) else "未配置",
+        "balanced": _base_url_for_tier("balanced") if (_optional("AGENT_LLM_BALANCED_API_KEY") or _optional("AGENT_LLM_API_KEY")) else "未配置",
+        "strong": _base_url_for_tier("strong") if (_optional("AGENT_LLM_STRONG_API_KEY") or _optional("AGENT_LLM_API_KEY")) else "未配置",
+    }
     models = {
-        "fast": _model_for_tier("fast") if os.environ.get("AGENT_LLM_API_KEY") else "未配置",
-        "balanced": _model_for_tier("balanced") if os.environ.get("AGENT_LLM_API_KEY") else "未配置",
-        "strong": _model_for_tier("strong") if os.environ.get("AGENT_LLM_API_KEY") else "未配置",
+        "fast": _model_for_tier("fast") if base_urls["fast"] != "未配置" else "未配置",
+        "balanced": _model_for_tier("balanced") if base_urls["balanced"] != "未配置" else "未配置",
+        "strong": _model_for_tier("strong") if base_urls["strong"] != "未配置" else "未配置",
     }
     tracing = os.environ.get("LANGCHAIN_TRACING_V2", "false").lower() == "true"
     project = os.environ.get("LANGSMITH_PROJECT", "")
     return {
         "model": models["balanced"],
         "models": models,
-        "base_url": base_url,
+        "base_url": base_urls["balanced"],
+        "base_urls": base_urls,
         "langsmith_tracing": tracing,
         "langsmith_project": project if tracing else None,
     }

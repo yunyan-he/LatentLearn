@@ -26,7 +26,7 @@ type LlmTier = "fast" | "balanced" | "strong";
 
 export function getLlmModel(tier: LlmTier = "balanced") {
   const model = readTierEnv("MODEL", tier, "LLM_MODEL");
-  if (freeModelGuardEnabled() && !model.endsWith(":free")) {
+  if (freeModelGuardEnabled(tier) && !model.endsWith(":free")) {
     throw new Error(`LLM ${tier} model "${model}" is not marked as free. Set the model to a :free OpenRouter model or set LLM_REQUIRE_FREE_MODEL=false.`);
   }
   return model;
@@ -40,7 +40,7 @@ export function streamInitialOverview(document: LearningDocument, language: "en"
   const systemPrompt = language === "en"
     ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English so that learners can easily ask follow-up questions."
     : "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。";
-  return streamLlmProvider("balanced", [
+  return streamLlmProvider(selectTutorTier(document, "", [], language), [
     {
       role: "system",
       content: systemPrompt
@@ -56,7 +56,7 @@ export function streamFollowUp(document: LearningDocument, path: BubbleNode[], q
   const systemPrompt = language === "en"
     ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English. Allow the user to explore off-topic questions, but append a polite and gentle off-topic hint starting with [OFFTOPIC] at the end."
     : "你是 LatentLearn 的学习导师。允许用户探索跑偏问题，但需要按提示词约定输出 [OFFTOPIC] 标记。";
-  return streamLlmProvider("balanced", [
+  return streamLlmProvider(selectTutorTier(document, query, path, language), [
     {
       role: "system",
       content: systemPrompt
@@ -140,6 +140,21 @@ export async function summarizePath(path: BubbleNode[], language: "en" | "zh" = 
     { role: "user", content: buildMemorySummaryContext(path, language) }
   ]);
   return parseMemorySummary(content);
+}
+
+function selectTutorTier(document: LearningDocument, query: string, path: BubbleNode[], language: "en" | "zh"): LlmTier {
+  if (process.env.LLM_AUTO_STRONG?.trim().toLowerCase() === "false") return "balanced";
+
+  const documentSize = JSON.stringify(document).length;
+  const markers = language === "zh"
+    ? ["深入", "复杂", "推理", "证明", "严谨", "源码", "架构", "debug", "调试", "数学", "公式", "论文"]
+    : ["deep", "complex", "reason", "prove", "rigorous", "source code", "architecture", "debug", "math", "formula", "paper"];
+  const normalizedQuery = query.toLowerCase();
+
+  if (documentSize > 12000 || query.length > 500 || path.length >= 5 || markers.some((marker) => normalizedQuery.includes(marker))) {
+    return "strong";
+  }
+  return "balanced";
 }
 
 function buildMemorySummaryContext(path: BubbleNode[], language: "en" | "zh") {
@@ -226,18 +241,18 @@ async function completeLlmProvider(tier: LlmTier, messages: ChatMessage[]) {
 }
 
 async function callLlmProvider(tier: LlmTier, messages: ChatMessage[], stream: boolean) {
-  const provider = readRequiredEnv("LLM_PROVIDER");
-  const apiKey = readRequiredEnv("LLM_API_KEY");
-  const baseUrl = readRequiredEnv("LLM_BASE_URL");
-  const chatPath = readRequiredEnv("LLM_CHAT_COMPLETIONS_PATH");
+  const provider = readTierEnv("PROVIDER", tier, "LLM_PROVIDER");
+  const apiKey = readTierEnv("API_KEY", tier, "LLM_API_KEY");
+  const baseUrl = readTierEnv("BASE_URL", tier, "LLM_BASE_URL");
+  const chatPath = readTierEnv("CHAT_COMPLETIONS_PATH", tier, "LLM_CHAT_COMPLETIONS_PATH");
 
   const response = await fetch(joinUrl(baseUrl, chatPath), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      ...optionalHeader("HTTP-Referer", process.env.LLM_HTTP_REFERER),
-      ...optionalHeader("X-Title", process.env.LLM_APP_TITLE)
+      ...optionalHeader("HTTP-Referer", readOptionalEnv(`LLM_${tier.toUpperCase()}_HTTP_REFERER`) || readOptionalEnv("LLM_HTTP_REFERER")),
+      ...optionalHeader("X-Title", readOptionalEnv(`LLM_${tier.toUpperCase()}_APP_TITLE`) || readOptionalEnv("LLM_APP_TITLE"))
     },
     body: JSON.stringify({
       model: getLlmModel(tier),
@@ -388,8 +403,10 @@ function readIntegerEnvForTier(suffix: string, tier: LlmTier, fallbackName: stri
   return parsed;
 }
 
-function freeModelGuardEnabled() {
-  return process.env.LLM_REQUIRE_FREE_MODEL?.trim().toLowerCase() === "true";
+function freeModelGuardEnabled(tier: LlmTier) {
+  const tierValue = readOptionalEnv(`LLM_${tier.toUpperCase()}_REQUIRE_FREE_MODEL`);
+  const value = tierValue || readOptionalEnv("LLM_REQUIRE_FREE_MODEL");
+  return value.toLowerCase() === "true";
 }
 
 function joinUrl(baseUrl: string, path: string) {

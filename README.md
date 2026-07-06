@@ -221,19 +221,38 @@ LatentLearn uses separate `.env` files for its client and server modules.
 
 ### Next.js Frontend Configuration (`.env.local`)
 ```env
-# Choose provider: openrouter, deepseek, or qwen
+# Fallback provider. Tier-specific settings below can override this.
 LLM_PROVIDER=openrouter
 LLM_API_KEY=your_api_key_here
 LLM_BASE_URL=https://openrouter.ai
 LLM_CHAT_COMPLETIONS_PATH=/api/v1/chat/completions
 LLM_MODEL=google/gemma-4-31b-it:free
-LLM_FAST_MODEL=google/gemma-4-31b-it:free
-LLM_BALANCED_MODEL=google/gemma-4-31b-it:free
-LLM_STRONG_MODEL=google/gemma-4-31b-it:free
 
-# true: locks models to OpenRouter free models (ends with :free) for safety
-# false: unlocks official model IDs like deepseek-chat or gemini-3.5-flash
-LLM_REQUIRE_FREE_MODEL=true
+# Mixed tier routing for the direct Next.js fallback path.
+LLM_FAST_PROVIDER=openrouter
+LLM_FAST_API_KEY=your_openrouter_key_here
+LLM_FAST_BASE_URL=https://openrouter.ai
+LLM_FAST_CHAT_COMPLETIONS_PATH=/api/v1/chat/completions
+LLM_FAST_MODEL=tencent/hy3:free
+LLM_FAST_REQUIRE_FREE_MODEL=true
+
+LLM_BALANCED_PROVIDER=gemini
+LLM_BALANCED_API_KEY=your_ai_studio_key_here
+LLM_BALANCED_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+LLM_BALANCED_CHAT_COMPLETIONS_PATH=/chat/completions
+LLM_BALANCED_MODEL=gemini-3.5-flash
+LLM_BALANCED_REQUIRE_FREE_MODEL=false
+
+LLM_STRONG_PROVIDER=deepseek
+LLM_STRONG_API_KEY=your_deepseek_key_here
+LLM_STRONG_BASE_URL=https://api.deepseek.com
+LLM_STRONG_CHAT_COMPLETIONS_PATH=/chat/completions
+LLM_STRONG_MODEL=deepseek-v4-pro
+LLM_STRONG_REQUIRE_FREE_MODEL=false
+LLM_AUTO_STRONG=true
+
+# Global fallback guard. Prefer tier-specific *_REQUIRE_FREE_MODEL in mixed mode.
+LLM_REQUIRE_FREE_MODEL=false
 
 LLM_TEMPERATURE=0.4
 LLM_MAX_TOKENS=1800
@@ -247,13 +266,24 @@ LLM_STRONG_MAX_TOKENS=3000
 
 ### LangGraph Agent Configuration (`agent/.env.agent`)
 ```env
-# API credentials for the LangGraph agent layer
-AGENT_LLM_API_KEY=your_api_key_here
+# Fallback API credentials for the LangGraph agent layer.
+AGENT_LLM_API_KEY=your_fallback_key_here
 AGENT_LLM_BASE_URL=https://openrouter.ai/api/v1
 AGENT_LLM_MODEL=google/gemma-4-31b-it:free
-AGENT_LLM_FAST_MODEL=google/gemma-4-31b-it:free
-AGENT_LLM_BALANCED_MODEL=google/gemma-4-31b-it:free
-AGENT_LLM_STRONG_MODEL=google/gemma-4-31b-it:free
+
+# Mixed tier routing. Each tier may use a different provider/key/base URL.
+AGENT_LLM_FAST_API_KEY=your_openrouter_key_here
+AGENT_LLM_FAST_BASE_URL=https://openrouter.ai/api/v1
+AGENT_LLM_FAST_MODEL=tencent/hy3:free
+
+AGENT_LLM_BALANCED_API_KEY=your_ai_studio_key_here
+AGENT_LLM_BALANCED_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+AGENT_LLM_BALANCED_MODEL=gemini-3.5-flash
+
+AGENT_LLM_STRONG_API_KEY=your_deepseek_key_here
+AGENT_LLM_STRONG_BASE_URL=https://api.deepseek.com
+AGENT_LLM_STRONG_MODEL=deepseek-v4-pro
+AGENT_LLM_AUTO_STRONG=true
 
 # Generator hyperparameters
 AGENT_LLM_TEMPERATURE=0.4
