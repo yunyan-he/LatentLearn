@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent.config import get_llm
+from agent.config import get_fast_llm, get_llm
 from agent.prompts import (
     build_followup_prompt,
     build_overview_prompt,
@@ -61,7 +61,7 @@ def tutor_node(state: AgentState) -> dict:
             HumanMessage(content=str(content))
         ]
         try:
-            summary_response = llm.invoke(summary_messages, config={"tags": ["document_summary"]})
+            summary_response = get_fast_llm().invoke(summary_messages, config={"tags": ["document_summary"]})
             summary_content = summary_response.content if hasattr(summary_response, "content") else str(summary_response)
             document_summary = str(summary_content).strip()
         except Exception:

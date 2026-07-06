@@ -22,10 +22,12 @@ interface ChatResponse {
   }>;
 }
 
-export function getLlmModel() {
-  const model = readRequiredEnv("LLM_MODEL");
+type LlmTier = "fast" | "balanced" | "strong";
+
+export function getLlmModel(tier: LlmTier = "balanced") {
+  const model = readTierEnv("MODEL", tier, "LLM_MODEL");
   if (freeModelGuardEnabled() && !model.endsWith(":free")) {
-    throw new Error(`LLM_MODEL "${model}" is not marked as free. Set LLM_MODEL to a :free model or set LLM_REQUIRE_FREE_MODEL=false.`);
+    throw new Error(`LLM ${tier} model "${model}" is not marked as free. Set the model to a :free OpenRouter model or set LLM_REQUIRE_FREE_MODEL=false.`);
   }
   return model;
 }
@@ -38,7 +40,7 @@ export function streamInitialOverview(document: LearningDocument, language: "en"
   const systemPrompt = language === "en"
     ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English so that learners can easily ask follow-up questions."
     : "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。";
-  return streamLlmProvider([
+  return streamLlmProvider("balanced", [
     {
       role: "system",
       content: systemPrompt
@@ -54,7 +56,7 @@ export function streamFollowUp(document: LearningDocument, path: BubbleNode[], q
   const systemPrompt = language === "en"
     ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English. Allow the user to explore off-topic questions, but append a polite and gentle off-topic hint starting with [OFFTOPIC] at the end."
     : "你是 LatentLearn 的学习导师。允许用户探索跑偏问题，但需要按提示词约定输出 [OFFTOPIC] 标记。";
-  return streamLlmProvider([
+  return streamLlmProvider("balanced", [
     {
       role: "system",
       content: systemPrompt
@@ -70,7 +72,7 @@ export async function decomposeQuery(document: LearningDocument, query: string, 
   const systemPrompt = language === "en"
     ? "You only output valid JSON, no Markdown formatting, no extra explanation."
     : "你只输出有效 JSON，不要 Markdown，不要解释。";
-  const content = await completeLlmProvider([
+  const content = await completeLlmProvider("fast", [
     {
       role: "system",
       content: systemPrompt
@@ -113,7 +115,7 @@ export async function planTreeMounts(
   const systemPrompt = language === "en"
     ? "You are a Tree Writer Agent. Output only valid JSON."
     : "你是 Tree Writer Agent。只输出有效 JSON。";
-  const content = await completeLlmProvider([
+  const content = await completeLlmProvider("fast", [
     { role: "system", content: systemPrompt },
     {
       role: "user",
@@ -133,7 +135,7 @@ export async function summarizePath(path: BubbleNode[], language: "en" | "zh" = 
   const systemPrompt = language === "en"
     ? "You are LatentLearn's Memory Summarizer. Output only valid JSON."
     : "你是 LatentLearn 的 Memory Summarizer。只输出有效 JSON。";
-  const content = await completeLlmProvider([
+  const content = await completeLlmProvider("fast", [
     { role: "system", content: systemPrompt },
     { role: "user", content: buildMemorySummaryContext(path, language) }
   ]);
@@ -192,8 +194,8 @@ ${JSON.stringify(compactPath, null, 2)}`;
 ${JSON.stringify(compactPath, null, 2)}`;
 }
 
-async function* streamLlmProvider(messages: ChatMessage[]): AsyncGenerator<string> {
-  const response = await callLlmProvider(messages, true);
+async function* streamLlmProvider(tier: LlmTier, messages: ChatMessage[]): AsyncGenerator<string> {
+  const response = await callLlmProvider(tier, messages, true);
   if (!response.body) throw new Error("The LLM provider did not return a stream body.");
 
   const reader = response.body.getReader();
@@ -217,13 +219,13 @@ async function* streamLlmProvider(messages: ChatMessage[]): AsyncGenerator<strin
   if (finalChunk) yield finalChunk;
 }
 
-async function completeLlmProvider(messages: ChatMessage[]) {
-  const response = await callLlmProvider(messages, false);
+async function completeLlmProvider(tier: LlmTier, messages: ChatMessage[]) {
+  const response = await callLlmProvider(tier, messages, false);
   const payload = (await response.json()) as ChatResponse;
   return payload.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
-async function callLlmProvider(messages: ChatMessage[], stream: boolean) {
+async function callLlmProvider(tier: LlmTier, messages: ChatMessage[], stream: boolean) {
   const provider = readRequiredEnv("LLM_PROVIDER");
   const apiKey = readRequiredEnv("LLM_API_KEY");
   const baseUrl = readRequiredEnv("LLM_BASE_URL");
@@ -238,11 +240,11 @@ async function callLlmProvider(messages: ChatMessage[], stream: boolean) {
       ...optionalHeader("X-Title", process.env.LLM_APP_TITLE)
     },
     body: JSON.stringify({
-      model: getLlmModel(),
+      model: getLlmModel(tier),
       messages,
       stream,
-      temperature: readNumberEnv("LLM_TEMPERATURE"),
-      max_tokens: readIntegerEnv("LLM_MAX_TOKENS")
+      temperature: readNumberEnvForTier("TEMPERATURE", tier, "LLM_TEMPERATURE"),
+      max_tokens: readIntegerEnvForTier("MAX_TOKENS", tier, "LLM_MAX_TOKENS")
     })
   });
 
@@ -361,17 +363,28 @@ function readRequiredEnv(name: string) {
   return value;
 }
 
-function readNumberEnv(name: string) {
-  const value = readRequiredEnv(name);
+function readOptionalEnv(name: string) {
+  return process.env[name]?.trim() ?? "";
+}
+
+function readTierEnv(suffix: string, tier: LlmTier, fallbackName: string) {
+  const tierName = `LLM_${tier.toUpperCase()}_${suffix}`;
+  const value = readOptionalEnv(tierName) || readOptionalEnv(fallbackName);
+  if (!value) throw new Error(`Missing ${tierName} or ${fallbackName}. Please configure it in .env.local.`);
+  return value;
+}
+
+function readNumberEnvForTier(suffix: string, tier: LlmTier, fallbackName: string) {
+  const value = readTierEnv(suffix, tier, fallbackName);
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`${name} must be a number.`);
+  if (!Number.isFinite(parsed)) throw new Error(`LLM_${tier.toUpperCase()}_${suffix} must be a number.`);
   return parsed;
 }
 
-function readIntegerEnv(name: string) {
-  const value = readRequiredEnv(name);
+function readIntegerEnvForTier(suffix: string, tier: LlmTier, fallbackName: string) {
+  const value = readTierEnv(suffix, tier, fallbackName);
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name} must be a positive integer.`);
+  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`LLM_${tier.toUpperCase()}_${suffix} must be a positive integer.`);
   return parsed;
 }
 

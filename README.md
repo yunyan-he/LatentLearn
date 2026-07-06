@@ -227,13 +227,22 @@ LLM_API_KEY=your_api_key_here
 LLM_BASE_URL=https://openrouter.ai
 LLM_CHAT_COMPLETIONS_PATH=/api/v1/chat/completions
 LLM_MODEL=google/gemma-4-31b-it:free
+LLM_FAST_MODEL=google/gemma-4-31b-it:free
+LLM_BALANCED_MODEL=google/gemma-4-31b-it:free
+LLM_STRONG_MODEL=google/gemma-4-31b-it:free
 
 # true: locks models to OpenRouter free models (ends with :free) for safety
-# false: unlocks official model IDs like deepseek-chat or qwen-plus
+# false: unlocks official model IDs like deepseek-chat or gemini-3.5-flash
 LLM_REQUIRE_FREE_MODEL=true
 
 LLM_TEMPERATURE=0.4
 LLM_MAX_TOKENS=1800
+LLM_FAST_TEMPERATURE=0.2
+LLM_FAST_MAX_TOKENS=1000
+LLM_BALANCED_TEMPERATURE=0.4
+LLM_BALANCED_MAX_TOKENS=2000
+LLM_STRONG_TEMPERATURE=0.5
+LLM_STRONG_MAX_TOKENS=3000
 ```
 
 ### LangGraph Agent Configuration (`agent/.env.agent`)
@@ -242,10 +251,19 @@ LLM_MAX_TOKENS=1800
 AGENT_LLM_API_KEY=your_api_key_here
 AGENT_LLM_BASE_URL=https://openrouter.ai/api/v1
 AGENT_LLM_MODEL=google/gemma-4-31b-it:free
+AGENT_LLM_FAST_MODEL=google/gemma-4-31b-it:free
+AGENT_LLM_BALANCED_MODEL=google/gemma-4-31b-it:free
+AGENT_LLM_STRONG_MODEL=google/gemma-4-31b-it:free
 
 # Generator hyperparameters
 AGENT_LLM_TEMPERATURE=0.4
 AGENT_LLM_MAX_TOKENS=2000
+AGENT_LLM_FAST_TEMPERATURE=0.2
+AGENT_LLM_FAST_MAX_TOKENS=1000
+AGENT_LLM_BALANCED_TEMPERATURE=0.4
+AGENT_LLM_BALANCED_MAX_TOKENS=2000
+AGENT_LLM_STRONG_TEMPERATURE=0.5
+AGENT_LLM_STRONG_MAX_TOKENS=3000
 
 # Backend FastAPI bindings
 AGENT_HOST=127.0.0.1

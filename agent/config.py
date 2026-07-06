@@ -41,20 +41,32 @@ def _optional(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
-@lru_cache(maxsize=1)
-def get_llm() -> ChatOpenAI:
-    """
-    返回共享的 ChatOpenAI 实例（缓存，避免重复初始化）。
-    langchain-openai 的 ChatOpenAI 原生支持 base_url 参数，
-    可对接任何 OpenAI-compatible 接口。
-    """
-    api_key = _require("AGENT_LLM_API_KEY")
-    base_url = _require("AGENT_LLM_BASE_URL")
-    model = _require("AGENT_LLM_MODEL")
-    temperature = float(_optional("AGENT_LLM_TEMPERATURE", "0.4"))
-    max_tokens = int(_optional("AGENT_LLM_MAX_TOKENS", "2000"))
+def _model_for_tier(tier: str) -> str:
+    env_name = f"AGENT_LLM_{tier.upper()}_MODEL"
+    configured = _optional(env_name)
+    if configured:
+        return configured
 
-    # OpenRouter 需要额外的 attribution headers
+    legacy_fast_model = _optional("AGENT_LLM_FAST_MODEL")
+    if tier == "fast" and legacy_fast_model:
+        return legacy_fast_model
+
+    default_model = _optional("AGENT_LLM_MODEL")
+    if default_model:
+        return default_model
+
+    return _require("AGENT_LLM_BALANCED_MODEL")
+
+
+def _max_tokens_for_tier(tier: str, default: str) -> int:
+    return int(_optional(f"AGENT_LLM_{tier.upper()}_MAX_TOKENS", _optional("AGENT_LLM_MAX_TOKENS", default)))
+
+
+def _temperature_for_tier(tier: str, default: str) -> float:
+    return float(_optional(f"AGENT_LLM_{tier.upper()}_TEMPERATURE", _optional("AGENT_LLM_TEMPERATURE", default)))
+
+
+def _provider_headers() -> dict[str, str]:
     default_headers: dict[str, str] = {}
     http_referer = _optional("AGENT_LLM_HTTP_REFERER")
     app_title = _optional("AGENT_LLM_APP_TITLE")
@@ -62,6 +74,21 @@ def get_llm() -> ChatOpenAI:
         default_headers["HTTP-Referer"] = http_referer
     if app_title:
         default_headers["X-Title"] = app_title
+    return default_headers
+
+
+@lru_cache(maxsize=8)
+def get_llm_for_tier(tier: str) -> ChatOpenAI:
+    """Return a cached OpenAI-compatible chat model for a workload tier."""
+    if tier not in ("fast", "balanced", "strong"):
+        raise ValueError(f"Unsupported LLM tier: {tier}")
+
+    api_key = _require("AGENT_LLM_API_KEY")
+    base_url = _require("AGENT_LLM_BASE_URL")
+    model = _model_for_tier(tier)
+    temperature = _temperature_for_tier(tier, "0.2" if tier == "fast" else "0.4")
+    max_tokens = _max_tokens_for_tier(tier, "1000" if tier == "fast" else "2000")
+    default_headers = _provider_headers()
 
     return ChatOpenAI(
         model=model,
@@ -70,69 +97,38 @@ def get_llm() -> ChatOpenAI:
         temperature=temperature,
         max_tokens=max_tokens,
         default_headers=default_headers or None,
-        streaming=True,         # 默认开启，tutor node 会用 astream
+        streaming=tier != "fast",
     )
 
 
-@lru_cache(maxsize=1)
+def get_llm() -> ChatOpenAI:
+    """兼容旧调用：主辅导模型现在映射到 balanced tier。"""
+    return get_llm_for_tier("balanced")
+
+
 def get_fast_llm() -> ChatOpenAI:
-    """
-    返回一个专门用于结构化/非辅导任务（拆解、定位、挂载、摘要）的极速 LLM 实例。
-    默认自动检测并防止 Reasoning 延迟：
-      - 优先检查 AGENT_LLM_FAST_MODEL 环境变量。
-      - 如果未设置，则自动将 Gemini 类的慢模型退化为 'gemini-2.5-flash'（或 openrouter 下的 'google/gemini-2.5-flash'）。
-      - 其他模型如果为 reasoning 型，也会智能降级到小尺寸高速模型以确保 0.5s 级响应。
-    """
-    api_key = _require("AGENT_LLM_API_KEY")
-    base_url = _require("AGENT_LLM_BASE_URL")
-    
-    fast_model = os.environ.get("AGENT_LLM_FAST_MODEL", "").strip()
-    if not fast_model:
-        main_model = _require("AGENT_LLM_MODEL")
-        if "thinking" in main_model or "pro" in main_model or "gemma-4" in main_model or "o1" in main_model or "o3" in main_model:
-            if "openrouter" in base_url:
-                fast_model = "google/gemini-2.5-flash"
-            else:
-                fast_model = "gemini-2.5-flash"
-        else:
-            fast_model = main_model
+    """兼容旧调用：结构化/定位任务映射到 fast tier。"""
+    return get_llm_for_tier("fast")
 
-    temperature = float(_optional("AGENT_LLM_TEMPERATURE", "0.2"))
-    max_tokens = int(_optional("AGENT_LLM_MAX_TOKENS", "1000"))
 
-    default_headers: dict[str, str] = {}
-    http_referer = _optional("AGENT_LLM_HTTP_REFERER")
-    app_title = _optional("AGENT_LLM_APP_TITLE")
-    if http_referer:
-        default_headers["HTTP-Referer"] = http_referer
-    if app_title:
-        default_headers["X-Title"] = app_title
-
-    return ChatOpenAI(
-        model=fast_model,
-        api_key=api_key,        # type: ignore[arg-type]
-        base_url=base_url,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        default_headers=default_headers or None,
-        streaming=False,        # 结构化任务关闭流式，提高一次性吞吐
-    )
+def get_strong_llm() -> ChatOpenAI:
+    """复杂讲解、深度推理或后续评估可显式使用 strong tier。"""
+    return get_llm_for_tier("strong")
 
 
 def get_settings() -> dict:
     """返回当前配置摘要（用于 /health 接口展示，不含敏感 key）"""
-    model = os.environ.get("AGENT_LLM_MODEL", "未配置")
     base_url = os.environ.get("AGENT_LLM_BASE_URL", "未配置")
-    try:
-        fast_llm = get_fast_llm()
-        fast_model = fast_llm.model_name
-    except Exception:
-        fast_model = "检测失败"
+    models = {
+        "fast": _model_for_tier("fast") if os.environ.get("AGENT_LLM_API_KEY") else "未配置",
+        "balanced": _model_for_tier("balanced") if os.environ.get("AGENT_LLM_API_KEY") else "未配置",
+        "strong": _model_for_tier("strong") if os.environ.get("AGENT_LLM_API_KEY") else "未配置",
+    }
     tracing = os.environ.get("LANGCHAIN_TRACING_V2", "false").lower() == "true"
     project = os.environ.get("LANGSMITH_PROJECT", "")
     return {
-        "model": model,
-        "fast_model": fast_model,
+        "model": models["balanced"],
+        "models": models,
         "base_url": base_url,
         "langsmith_tracing": tracing,
         "langsmith_project": project if tracing else None,
