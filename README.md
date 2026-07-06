@@ -67,7 +67,7 @@ LatentLearn is architected as an decoupled, event-driven system combining high-p
 -  **Frontend:** Next.js 16 (App Router), TypeScript 5, Tailwind CSS, custom reactive state stores, SSE (Server-Sent Events) streaming.
 -  **Backend:** Python 3.10+, FastAPI (Asynchronous Web Gateway), Uvicorn.
 -  **Multi-Agent Orchestration:** LangGraph (Stateful, cyclic/acyclic graph execution), LangChain.
--  **LLM Layer:** Powered by Google's state-of-the-art **Gemma 4** open-weights models (using `google/gemma-4-31b-it` on OpenRouter, or locally via Ollama with `gemma4:31b` / `gemma4:e4b` for offline spatial learning).
+-  **LLM Layer:** Powered by **DeepSeek v4 Flash** through the DeepSeek-compatible chat completions API.
 
 ### Evolutionary Roadmap
 -  [x] **Phase 1: Dual-Input Pipeline.** Robust file ingestion and automated topic-overview generator.
@@ -221,79 +221,30 @@ LatentLearn uses separate `.env` files for its client and server modules.
 
 ### Next.js Frontend Configuration (`.env.local`)
 ```env
-# Fallback provider. Tier-specific settings below can override this.
-LLM_PROVIDER=openrouter
+# DeepSeek official API fallback. When AGENT_API_URL is set, frontend routes proxy to LangGraph first.
+LLM_PROVIDER=deepseek
 LLM_API_KEY=your_api_key_here
-LLM_BASE_URL=https://openrouter.ai
-LLM_CHAT_COMPLETIONS_PATH=/api/v1/chat/completions
-LLM_MODEL=google/gemma-4-31b-it:free
-
-# Mixed tier routing for the direct Next.js fallback path.
-LLM_FAST_PROVIDER=openrouter
-LLM_FAST_API_KEY=your_openrouter_key_here
-LLM_FAST_BASE_URL=https://openrouter.ai
-LLM_FAST_CHAT_COMPLETIONS_PATH=/api/v1/chat/completions
-LLM_FAST_MODEL=tencent/hy3:free
-LLM_FAST_REQUIRE_FREE_MODEL=true
-
-LLM_BALANCED_PROVIDER=gemini
-LLM_BALANCED_API_KEY=your_ai_studio_key_here
-LLM_BALANCED_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-LLM_BALANCED_CHAT_COMPLETIONS_PATH=/chat/completions
-LLM_BALANCED_MODEL=gemini-3.5-flash
-LLM_BALANCED_REQUIRE_FREE_MODEL=false
-
-LLM_STRONG_PROVIDER=deepseek
-LLM_STRONG_API_KEY=your_deepseek_key_here
-LLM_STRONG_BASE_URL=https://api.deepseek.com
-LLM_STRONG_CHAT_COMPLETIONS_PATH=/chat/completions
-LLM_STRONG_MODEL=deepseek-v4-flash
-LLM_STRONG_REQUIRE_FREE_MODEL=false
-LLM_AUTO_STRONG=false
-
-# Global fallback guard. Prefer tier-specific *_REQUIRE_FREE_MODEL in mixed mode.
+LLM_BASE_URL=https://api.deepseek.com
+LLM_CHAT_COMPLETIONS_PATH=/chat/completions
+LLM_MODEL=deepseek-v4-flash
 LLM_REQUIRE_FREE_MODEL=false
 
 LLM_TEMPERATURE=0.4
-LLM_MAX_TOKENS=1800
-LLM_FAST_TEMPERATURE=0.2
-LLM_FAST_MAX_TOKENS=1000
-LLM_BALANCED_TEMPERATURE=0.4
-LLM_BALANCED_MAX_TOKENS=2000
-LLM_STRONG_TEMPERATURE=0.5
-LLM_STRONG_MAX_TOKENS=3000
+LLM_MAX_TOKENS=2200
+
+AGENT_API_URL=http://127.0.0.1:8100
 ```
 
 ### LangGraph Agent Configuration (`agent/.env.agent`)
 ```env
-# Fallback API credentials for the LangGraph agent layer.
-AGENT_LLM_API_KEY=your_fallback_key_here
-AGENT_LLM_BASE_URL=https://openrouter.ai/api/v1
-AGENT_LLM_MODEL=google/gemma-4-31b-it:free
-
-# Mixed tier routing. Each tier may use a different provider/key/base URL.
-AGENT_LLM_FAST_API_KEY=your_openrouter_key_here
-AGENT_LLM_FAST_BASE_URL=https://openrouter.ai/api/v1
-AGENT_LLM_FAST_MODEL=tencent/hy3:free
-
-AGENT_LLM_BALANCED_API_KEY=your_ai_studio_key_here
-AGENT_LLM_BALANCED_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-AGENT_LLM_BALANCED_MODEL=gemini-3.5-flash
-
-AGENT_LLM_STRONG_API_KEY=your_deepseek_key_here
-AGENT_LLM_STRONG_BASE_URL=https://api.deepseek.com
-AGENT_LLM_STRONG_MODEL=deepseek-v4-flash
-AGENT_LLM_AUTO_STRONG=false
+# DeepSeek official API for all LangGraph nodes.
+AGENT_LLM_API_KEY=your_api_key_here
+AGENT_LLM_BASE_URL=https://api.deepseek.com
+AGENT_LLM_MODEL=deepseek-v4-flash
 
 # Generator hyperparameters
 AGENT_LLM_TEMPERATURE=0.4
-AGENT_LLM_MAX_TOKENS=2000
-AGENT_LLM_FAST_TEMPERATURE=0.2
-AGENT_LLM_FAST_MAX_TOKENS=1000
-AGENT_LLM_BALANCED_TEMPERATURE=0.4
-AGENT_LLM_BALANCED_MAX_TOKENS=2000
-AGENT_LLM_STRONG_TEMPERATURE=0.5
-AGENT_LLM_STRONG_MAX_TOKENS=3000
+AGENT_LLM_MAX_TOKENS=2200
 
 # Backend FastAPI bindings
 AGENT_HOST=127.0.0.1

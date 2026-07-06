@@ -22,14 +22,8 @@ interface ChatResponse {
   }>;
 }
 
-type LlmTier = "fast" | "balanced" | "strong";
-
-export function getLlmModel(tier: LlmTier = "balanced") {
-  const model = readTierEnv("MODEL", tier, "LLM_MODEL");
-  if (freeModelGuardEnabled(tier) && !model.endsWith(":free")) {
-    throw new Error(`LLM ${tier} model "${model}" is not marked as free. Set the model to a :free OpenRouter model or set LLM_REQUIRE_FREE_MODEL=false.`);
-  }
-  return model;
+export function getLlmModel() {
+  return readRequiredEnv("LLM_MODEL");
 }
 
 export function hasLlmApiKey() {
@@ -40,7 +34,7 @@ export function streamInitialOverview(document: LearningDocument, language: "en"
   const systemPrompt = language === "en"
     ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English so that learners can easily ask follow-up questions."
     : "你是 LatentLearn 的学习导师。回答要清晰、准确、适合学习者继续追问。";
-  return streamLlmProvider(selectTutorTier(document, "", [], language), [
+  return streamLlmProvider([
     {
       role: "system",
       content: systemPrompt
@@ -56,7 +50,7 @@ export function streamFollowUp(document: LearningDocument, path: BubbleNode[], q
   const systemPrompt = language === "en"
     ? "You are LatentLearn's learning tutor. Respond clearly, accurately, and in English. Allow the user to explore off-topic questions, but append a polite and gentle off-topic hint starting with [OFFTOPIC] at the end."
     : "你是 LatentLearn 的学习导师。允许用户探索跑偏问题，但需要按提示词约定输出 [OFFTOPIC] 标记。";
-  return streamLlmProvider(selectTutorTier(document, query, path, language), [
+  return streamLlmProvider([
     {
       role: "system",
       content: systemPrompt
@@ -72,7 +66,7 @@ export async function decomposeQuery(document: LearningDocument, query: string, 
   const systemPrompt = language === "en"
     ? "You only output valid JSON, no Markdown formatting, no extra explanation."
     : "你只输出有效 JSON，不要 Markdown，不要解释。";
-  const content = await completeLlmProvider("fast", [
+  const content = await completeLlmProvider([
     {
       role: "system",
       content: systemPrompt
@@ -115,7 +109,7 @@ export async function planTreeMounts(
   const systemPrompt = language === "en"
     ? "You are a Tree Writer Agent. Output only valid JSON."
     : "你是 Tree Writer Agent。只输出有效 JSON。";
-  const content = await completeLlmProvider("fast", [
+  const content = await completeLlmProvider([
     { role: "system", content: systemPrompt },
     {
       role: "user",
@@ -135,26 +129,11 @@ export async function summarizePath(path: BubbleNode[], language: "en" | "zh" = 
   const systemPrompt = language === "en"
     ? "You are LatentLearn's Memory Summarizer. Output only valid JSON."
     : "你是 LatentLearn 的 Memory Summarizer。只输出有效 JSON。";
-  const content = await completeLlmProvider("fast", [
+  const content = await completeLlmProvider([
     { role: "system", content: systemPrompt },
     { role: "user", content: buildMemorySummaryContext(path, language) }
   ]);
   return parseMemorySummary(content);
-}
-
-function selectTutorTier(document: LearningDocument, query: string, path: BubbleNode[], language: "en" | "zh"): LlmTier {
-  if (process.env.LLM_AUTO_STRONG?.trim().toLowerCase() === "false") return "balanced";
-
-  const documentSize = JSON.stringify(document).length;
-  const markers = language === "zh"
-    ? ["深入", "复杂", "推理", "证明", "严谨", "源码", "架构", "debug", "调试", "数学", "公式", "论文"]
-    : ["deep", "complex", "reason", "prove", "rigorous", "source code", "architecture", "debug", "math", "formula", "paper"];
-  const normalizedQuery = query.toLowerCase();
-
-  if (documentSize > 12000 || query.length > 500 || path.length >= 5 || markers.some((marker) => normalizedQuery.includes(marker))) {
-    return "strong";
-  }
-  return "balanced";
 }
 
 function buildMemorySummaryContext(path: BubbleNode[], language: "en" | "zh") {
@@ -209,8 +188,8 @@ ${JSON.stringify(compactPath, null, 2)}`;
 ${JSON.stringify(compactPath, null, 2)}`;
 }
 
-async function* streamLlmProvider(tier: LlmTier, messages: ChatMessage[]): AsyncGenerator<string> {
-  const response = await callLlmProvider(tier, messages, true);
+async function* streamLlmProvider(messages: ChatMessage[]): AsyncGenerator<string> {
+  const response = await callLlmProvider(messages, true);
   if (!response.body) throw new Error("The LLM provider did not return a stream body.");
 
   const reader = response.body.getReader();
@@ -234,32 +213,32 @@ async function* streamLlmProvider(tier: LlmTier, messages: ChatMessage[]): Async
   if (finalChunk) yield finalChunk;
 }
 
-async function completeLlmProvider(tier: LlmTier, messages: ChatMessage[]) {
-  const response = await callLlmProvider(tier, messages, false);
+async function completeLlmProvider(messages: ChatMessage[]) {
+  const response = await callLlmProvider(messages, false);
   const payload = (await response.json()) as ChatResponse;
   return payload.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
-async function callLlmProvider(tier: LlmTier, messages: ChatMessage[], stream: boolean) {
-  const provider = readTierEnv("PROVIDER", tier, "LLM_PROVIDER");
-  const apiKey = readTierEnv("API_KEY", tier, "LLM_API_KEY");
-  const baseUrl = readTierEnv("BASE_URL", tier, "LLM_BASE_URL");
-  const chatPath = readTierEnv("CHAT_COMPLETIONS_PATH", tier, "LLM_CHAT_COMPLETIONS_PATH");
+async function callLlmProvider(messages: ChatMessage[], stream: boolean) {
+  const provider = readRequiredEnv("LLM_PROVIDER");
+  const apiKey = readRequiredEnv("LLM_API_KEY");
+  const baseUrl = readRequiredEnv("LLM_BASE_URL");
+  const chatPath = readRequiredEnv("LLM_CHAT_COMPLETIONS_PATH");
 
   const response = await fetch(joinUrl(baseUrl, chatPath), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      ...optionalHeader("HTTP-Referer", readOptionalEnv(`LLM_${tier.toUpperCase()}_HTTP_REFERER`) || readOptionalEnv("LLM_HTTP_REFERER")),
-      ...optionalHeader("X-Title", readOptionalEnv(`LLM_${tier.toUpperCase()}_APP_TITLE`) || readOptionalEnv("LLM_APP_TITLE"))
+      ...optionalHeader("HTTP-Referer", process.env.LLM_HTTP_REFERER),
+      ...optionalHeader("X-Title", process.env.LLM_APP_TITLE)
     },
     body: JSON.stringify({
-      model: getLlmModel(tier),
+      model: getLlmModel(),
       messages,
       stream,
-      temperature: readNumberEnvForTier("TEMPERATURE", tier, "LLM_TEMPERATURE"),
-      max_tokens: readIntegerEnvForTier("MAX_TOKENS", tier, "LLM_MAX_TOKENS")
+      temperature: readNumberEnv("LLM_TEMPERATURE"),
+      max_tokens: readIntegerEnv("LLM_MAX_TOKENS")
     })
   });
 
@@ -378,35 +357,18 @@ function readRequiredEnv(name: string) {
   return value;
 }
 
-function readOptionalEnv(name: string) {
-  return process.env[name]?.trim() ?? "";
-}
-
-function readTierEnv(suffix: string, tier: LlmTier, fallbackName: string) {
-  const tierName = `LLM_${tier.toUpperCase()}_${suffix}`;
-  const value = readOptionalEnv(tierName) || readOptionalEnv(fallbackName);
-  if (!value) throw new Error(`Missing ${tierName} or ${fallbackName}. Please configure it in .env.local.`);
-  return value;
-}
-
-function readNumberEnvForTier(suffix: string, tier: LlmTier, fallbackName: string) {
-  const value = readTierEnv(suffix, tier, fallbackName);
+function readNumberEnv(name: string) {
+  const value = readRequiredEnv(name);
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`LLM_${tier.toUpperCase()}_${suffix} must be a number.`);
+  if (!Number.isFinite(parsed)) throw new Error(`${name} must be a number.`);
   return parsed;
 }
 
-function readIntegerEnvForTier(suffix: string, tier: LlmTier, fallbackName: string) {
-  const value = readTierEnv(suffix, tier, fallbackName);
+function readIntegerEnv(name: string) {
+  const value = readRequiredEnv(name);
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`LLM_${tier.toUpperCase()}_${suffix} must be a positive integer.`);
+  if (!Number.isInteger(parsed) || parsed <= 0) throw new Error(`${name} must be a positive integer.`);
   return parsed;
-}
-
-function freeModelGuardEnabled(tier: LlmTier) {
-  const tierValue = readOptionalEnv(`LLM_${tier.toUpperCase()}_REQUIRE_FREE_MODEL`);
-  const value = tierValue || readOptionalEnv("LLM_REQUIRE_FREE_MODEL");
-  return value.toLowerCase() === "true";
 }
 
 function joinUrl(baseUrl: string, path: string) {

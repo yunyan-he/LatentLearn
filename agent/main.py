@@ -123,62 +123,75 @@ async def _stream_graph_response(initial_state: AgentState, thread_id: str):
     thought_ended = False
     yielded_length = 0
 
-    async for event in graph.astream_events(initial_state, config=config, version="v2"):
-        kind = event.get("event", "")
+    try:
+        async for event in graph.astream_events(initial_state, config=config, version="v2"):
+            kind = event.get("event", "")
 
-        # LLM 流式 token：只允许 tutor 节点的回答进入前端正文。
-        # decomposer / tree-writer 等结构化 JSON 节点的 token 必须过滤掉，
-        # 否则会把 {"decomposed": ...} 之类内容显示成回答。
-        if kind == "on_chat_model_stream":
-            metadata = event.get("metadata", {}) or {}
-            node_name = metadata.get("langgraph_node")
-            if node_name != "tutor":
-                continue
-            # 过滤掉总结调用的 stream，防止它污染前端的总览气泡
-            tags = event.get("tags", []) or []
-            if "document_summary" in tags:
-                continue
-            chunk = event.get("data", {}).get("chunk")
-            if chunk and hasattr(chunk, "content") and chunk.content:
-                accumulated += chunk.content
+            # LLM 流式 token：只允许 tutor 节点的回答进入前端正文。
+            # decomposer / tree-writer 等结构化 JSON 节点的 token 必须过滤掉，
+            # 否则会把 {"decomposed": ...} 之类内容显示成回答。
+            if kind == "on_chat_model_stream":
+                metadata = event.get("metadata", {}) or {}
+                node_name = metadata.get("langgraph_node")
+                if node_name != "tutor":
+                    continue
+                # 过滤掉总结调用的 stream，防止它污染前端的总览气泡
+                tags = event.get("tags", []) or []
+                if "document_summary" in tags:
+                    continue
+                chunk = event.get("data", {}).get("chunk")
+                if chunk and hasattr(chunk, "content") and chunk.content:
+                    accumulated += chunk.content
 
-                # A. 确定是否包含思考标签
-                if not has_thought and not thought_ended:
-                    if "<thought>" in accumulated or "<think>" in accumulated:
-                        has_thought = True
-                    elif len(accumulated) >= 30:
-                        # 积累了 30 个字仍无思考标签前缀，说明模型没有进入 Thinking 模式，直接放行
-                        thought_ended = True
+                    # A. 确定是否包含思考标签
+                    if not has_thought and not thought_ended:
+                        if "<thought>" in accumulated or "<think>" in accumulated:
+                            has_thought = True
+                        elif len(accumulated) >= 30:
+                            # 积累了 30 个字仍无思考标签前缀，说明模型没有进入 Thinking 模式，直接放行
+                            thought_ended = True
 
-                # B. 如果在思考模式中，检测结束标签并做分割
-                if has_thought and not thought_ended:
-                    if "</thought>" in accumulated:
-                        thought_ended = True
-                        start_idx = accumulated.find("</thought>") + len("</thought>")
-                        to_yield = accumulated[start_idx:]
-                        if to_yield:
+                    # B. 如果在思考模式中，检测结束标签并做分割
+                    if has_thought and not thought_ended:
+                        if "</thought>" in accumulated:
+                            thought_ended = True
+                            start_idx = accumulated.find("</thought>") + len("</thought>")
+                            to_yield = accumulated[start_idx:]
+                            if to_yield:
+                                yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
+                            yielded_length = len(accumulated)
+                        elif "</think>" in accumulated:
+                            thought_ended = True
+                            start_idx = accumulated.find("</think>") + len("</think>")
+                            to_yield = accumulated[start_idx:]
+                            if to_yield:
+                                yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
+                            yielded_length = len(accumulated)
+
+                    # C. 如果已经退出思考模式，正常流式输出
+                    if thought_ended:
+                        if len(accumulated) > yielded_length:
+                            to_yield = accumulated[yielded_length:]
                             yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
-                        yielded_length = len(accumulated)
-                    elif "</think>" in accumulated:
-                        thought_ended = True
-                        start_idx = accumulated.find("</think>") + len("</think>")
-                        to_yield = accumulated[start_idx:]
-                        if to_yield:
-                            yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
-                        yielded_length = len(accumulated)
+                            yielded_length = len(accumulated)
 
-                # C. 如果已经退出思考模式，正常流式输出
-                if thought_ended:
-                    if len(accumulated) > yielded_length:
-                        to_yield = accumulated[yielded_length:]
-                        yield _sse(json.dumps({"type": "chunk", "content": to_yield}))
-                        yielded_length = len(accumulated)
-
-        # 图执行完毕，取最终 state
-        elif kind == "on_chain_end" and event.get("name") == "LangGraph":
-            output = event.get("data", {}).get("output", {})
-            if isinstance(output, dict):
-                final_state = output
+            # 图执行完毕，取最终 state
+            elif kind == "on_chain_end" and event.get("name") == "LangGraph":
+                output = event.get("data", {}).get("output", {})
+                if isinstance(output, dict):
+                    final_state = output
+    except Exception as exc:
+        detail = str(exc)
+        if len(detail) > 500:
+            detail = detail[:500] + "..."
+        yield _sse(json.dumps({"type": "chunk", "content": f"LLM 调用失败：{detail}"}))
+        yield _sse(json.dumps({
+            "type": "metadata",
+            "is_off_topic": False,
+            "off_topic_hint": None,
+        }))
+        yield _sse("[DONE]")
+        return
 
     # 发送 metadata
     yield _sse(json.dumps({
