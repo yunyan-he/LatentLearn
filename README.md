@@ -1,6 +1,6 @@
 # LatentLearn 🧠🌲
 
-> **A Spatial, Non-Linear Learning Platform Tailored for Divergent Minds. Built with Next.js, FastAPI, and Stateful LangGraph Multi-Agent Orchestration.**
+> **A Spatial, Non-Linear Learning Platform Tailored for Divergent Minds. Built with Next.js, FastAPI, and a Stateful LangGraph LLM Workflow.**
 
 ### 🌐 Live Deployment
 - **Frontend Web App (Vercel)**: 🌍 [https://latent-learn.vercel.app](https://latent-learn.vercel.app)
@@ -40,7 +40,7 @@ In a linear thread, this "rabbit hole" exploration creates two severe problems:
 
 ## 🛠️ Technical Stack & Roadmap (技术路线)
 
-LatentLearn is architected as an decoupled, event-driven system combining high-performance Python agents with a highly reactive, responsive React interface.
+LatentLearn is architected as a decoupled, event-driven system combining a stateful Python LLM workflow with a highly reactive, responsive React interface.
 
 ```
        +-------------------------------------------------------+
@@ -59,14 +59,14 @@ LatentLearn is architected as an decoupled, event-driven system combining high-p
                                     |
        +----------------------------v--------------------------+
        |                  LANGGRAPH BACKEND                    |
-       |      Stateful Multi-Agent DAG / MemorySaver State     |
+       |      Stateful LLM Workflow / MemorySaver State        |
        +-------------------------------------------------------+
 ```
 
 ### Core Technology Stack
 -  **Frontend:** Next.js 16 (App Router), TypeScript 5, Tailwind CSS, custom reactive state stores, SSE (Server-Sent Events) streaming.
 -  **Backend:** Python 3.10+, FastAPI (Asynchronous Web Gateway), Uvicorn.
--  **Multi-Agent Orchestration:** LangGraph (Stateful, cyclic/acyclic graph execution), LangChain.
+-  **LLM Workflow Orchestration:** LangGraph (stateful conditional graph execution), LangChain.
 -  **LLM Layer:** Powered by **DeepSeek v4 Flash** through the DeepSeek-compatible chat completions API.
 
 ### Evolutionary Roadmap
@@ -74,7 +74,7 @@ LatentLearn is architected as an decoupled, event-driven system combining high-p
 -  [x] **Phase 2: Spatial Branching Core.** Multi-level tree state synchronization and inline highlighting triggers.
 -  [x] **Phase 3: Stateful LangGraph Engine.** Intent routing, context-passage anchoring, and automated off-topic evaluation.
 -  [ ] **Phase 4: PostgreSQL Checkpoint Migration.** Swap the in-memory `MemorySaver` with `PostgresSaver` for persistent, multi-device cross-session history tracking.
--  [ ] **Phase 5: Local LLM Execution.** Integrate local Ollama runtimes, allowing the entire multi-agent graph to run fully offline on Apple Silicon/local GPUs.
+-  [ ] **Phase 5: Local LLM Execution.** Integrate local Ollama runtimes, allowing the entire LangGraph workflow to run fully offline on Apple Silicon/local GPUs.
 -  [ ] **Phase 6: Semantic Vector Memory Summarization.** Embed completed branches into a local vector database (ChromaDB) to perform semantic recall of past tangents across different topics.
 
 ---
@@ -110,9 +110,9 @@ LatentLearn is architected as an decoupled, event-driven system combining high-p
                   [React State Reducer Mounts New Node]
 ```
 
-### LangGraph Agent DAG Specification
+### LangGraph Workflow Specification
 
-Our agent graph compiles into a highly structured Directed Acyclic Graph (DAG) designed to execute specialized operations conditionally:
+The LangGraph workflow compiles into a structured Directed Acyclic Graph (DAG) that coordinates specialized LLM and utility nodes conditionally:
 
 ```mermaid
 graph TD
@@ -131,23 +131,25 @@ graph TD
     OffTopic --> END
 ```
 
-### Detailed Agent Nodes
-1.  **`intent_router` (Intent Classifier):** A lightweight agent that inspects input fields and validates user intention (`overview`, `followup`, `decompose`, `tree_writer`) without invoking expensive LLM cycles.
+### Detailed Workflow Nodes
+1.  **`intent_router` (Intent Classifier):** A lightweight routing node that inspects input fields and validates user intention (`overview`, `followup`, `decompose`, `tree_writer`) without invoking expensive LLM cycles.
 2.  **`decomposer` (Query Decomposer):** When a user inputs a broad or multi-part query, this node breaks it down into structured, simpler sub-questions (`decomposed_questions`) to prevent cognitive overload.
 3.  **`anchor_locator` (Context Anchor):** Scans the original learning document, matches the question to its source section, and computes confidence scores. It supports **Early Exit Optimization**: if the graph is in pure decomposition mode (`mode == "decompose"`), it terminates immediately after this node to avoid redundant LLM executions.
-4.  **`tutor` (Explainer Agent):** The pedagogical core. It aggregates context and drafts engaging educational responses in Markdown. During `overview` mode, it **automatically extracts a concise `document_summary`** and stores it in the state, which is used as a highly optimized, cost-efficient reference for downstream off-topic detection.
-5.  **`offtopic_eval` (Drift Detector):** Evaluates if the current query drifts from the document's core scope (referenced via the saved `document_summary`). It implements **Off-topic Inheritance**: any sub-questions asked on a parent node that is already off-topic automatically inherit the off-topic state, ensuring visual and interactive consistency.
-6.  **`tree_writer` (State Manager):** Programmatically constructs, structures, and modifies the Focus Tree schema inside the global `AgentState`.
+4.  **`tutor` (Explainer Node):** The pedagogical core. It aggregates context and drafts engaging educational responses in Markdown. During `overview` mode, it **automatically extracts a concise `document_summary`** and stores it in the state, which is used as a highly optimized, cost-efficient reference for downstream off-topic detection.
+5.  **`offtopic_eval` (Drift Marker Parser):** Parses the tutor output for off-topic markers and applies **Off-topic Inheritance**: any sub-questions asked on a parent node that is already off-topic automatically inherit the off-topic state, ensuring visual and interactive consistency.
+6.  **`tree_writer` (State Manager):** Produces structured mount decisions for the Focus Tree schema inside the global `AgentState`.
+
+This architecture is intentionally a **stateful LLM workflow**, not a full multi-agent system. The current nodes are specialized workflow stages rather than autonomous agents that negotiate, critique, or plan independently. The design leaves room for future multi-agent extensions, such as adding critic, retrieval, or learning-coach roles when the product needs them.
 
 ---
 
 ## 🔬 Developer Tooling: LangGraph & LangSmith Guide
 
-LatentLearn comes fully integrated with enterprise-grade tracing and debugging tools, allowing you to monitor and visualize your stateful multi-agent system.
+LatentLearn comes fully integrated with enterprise-grade tracing and debugging tools, allowing you to monitor and visualize the stateful LLM workflow.
 
 ### 1. LangGraph CLI & Local Studio GUI
 
-The LangGraph CLI lets you trace, mock, and run your agent DAG locally with a powerful visual interface.
+The LangGraph CLI lets you trace, mock, and run the workflow DAG locally with a powerful visual interface.
 
 #### Installation
 Make sure you have python 3.10+ and install the LangGraph CLI:
@@ -172,7 +174,7 @@ This launches a local server on [http://localhost:8123](http://localhost:8123) a
 
 ### 2. Production Telemetry with LangSmith
 
-**LangSmith** provides deep, production-grade observability for your agents. It records every LLM call, token usage, latency, and node state change.
+**LangSmith** provides deep, production-grade observability for LLM workflows. It records every LLM call, token usage, latency, and node state change.
 
 #### Setup Instructions
 1.  Go to [LangSmith](https://smith.langchain.com) and create a free account.
