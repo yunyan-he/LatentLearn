@@ -247,9 +247,9 @@ LLM_STRONG_PROVIDER=deepseek
 LLM_STRONG_API_KEY=your_deepseek_key_here
 LLM_STRONG_BASE_URL=https://api.deepseek.com
 LLM_STRONG_CHAT_COMPLETIONS_PATH=/chat/completions
-LLM_STRONG_MODEL=deepseek-v4-pro
+LLM_STRONG_MODEL=deepseek-v4-flash
 LLM_STRONG_REQUIRE_FREE_MODEL=false
-LLM_AUTO_STRONG=true
+LLM_AUTO_STRONG=false
 
 # Global fallback guard. Prefer tier-specific *_REQUIRE_FREE_MODEL in mixed mode.
 LLM_REQUIRE_FREE_MODEL=false
@@ -282,8 +282,8 @@ AGENT_LLM_BALANCED_MODEL=gemini-3.5-flash
 
 AGENT_LLM_STRONG_API_KEY=your_deepseek_key_here
 AGENT_LLM_STRONG_BASE_URL=https://api.deepseek.com
-AGENT_LLM_STRONG_MODEL=deepseek-v4-pro
-AGENT_LLM_AUTO_STRONG=true
+AGENT_LLM_STRONG_MODEL=deepseek-v4-flash
+AGENT_LLM_AUTO_STRONG=false
 
 # Generator hyperparameters
 AGENT_LLM_TEMPERATURE=0.4
