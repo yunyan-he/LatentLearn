@@ -2,10 +2,12 @@
 
 > **A Spatial, Non-Linear Learning Platform Tailored for Divergent Minds. Built with Next.js, FastAPI, and a Stateful LangGraph LLM Workflow.**
 
+🌐 **English README | [中文版 README](file:///Users/aerin/Documents/LatentLearn/README_ZH.md)**
+
 > [!NOTE]
-> **💡 项目想法来源 (Project Origin)**
-> 本项目的想法源自于与 AI 漫无目的地聊一些主题时，如果想针对某个之前的细节继续展开或追问，往往需要往上翻找大段的历史对话内容并在脑海中重新梳理，这带来了极大的认知负荷。
-> **LatentLearn 作为一个探索性、尝试性的实验小项目**，旨在通过空间化的“焦点树”交互打破这种线性的对话枷锁，让思绪能够自由发散、收纳与回溯。
+> **💡 Project Origin**
+> The idea for this project stems from the experience of aimlessly chatting with an AI on various topics: when you want to expand or follow up on a specific detail mentioned earlier, you often have to scroll up through massive paragraphs of chat history and reconstruct the context in your mind, which introduces huge cognitive load.
+> **LatentLearn is an exploratory, experimental mini-project** designed to break this linear conversation bottleneck via a spatial "Focus Tree" interaction, allowing thoughts to branch off, collapse, and trace back freely.
 
 ### 🌐 Live Deployment
 - **Frontend Web App (Vercel)**: 🌍 [https://latent-learn.vercel.app](https://latent-learn.vercel.app)
@@ -60,7 +62,7 @@ LatentLearn is architected as a decoupled, event-driven system combining a state
        |     Asynchronous endpoints, CORS, State formatting    |
        +----------------------------+--------------------------+
                                     |
-                         LangGraph Graph Invoke
+                          LangGraph Graph Invoke
                                     |
        +----------------------------v--------------------------+
        |                  LANGGRAPH BACKEND                    |
