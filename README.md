@@ -2,6 +2,11 @@
 
 > **A Spatial, Non-Linear Learning Platform Tailored for Divergent Minds. Built with Next.js, FastAPI, and a Stateful LangGraph LLM Workflow.**
 
+> [!NOTE]
+> **💡 项目想法来源 (Project Origin)**
+> 本项目的想法源自于与 AI 漫无目的地聊一些主题时，如果想针对某个之前的细节继续展开或追问，往往需要往上翻找大段的历史对话内容并在脑海中重新梳理，这带来了极大的认知负荷。
+> **LatentLearn 作为一个探索性、尝试性的实验小项目**，旨在通过空间化的“焦点树”交互打破这种线性的对话枷锁，让思绪能够自由发散、收纳与回溯。
+
 ### 🌐 Live Deployment
 - **Frontend Web App (Vercel)**: 🌍 [https://latent-learn.vercel.app](https://latent-learn.vercel.app)
 - **Backend Agent API (Hugging Face)**: 🤖 [https://howcloudy-latentlearn-agent.hf.space](https://howcloudy-latentlearn-agent.hf.space) | 🟢 [API Health Status](https://howcloudy-latentlearn-agent.hf.space/health)
@@ -73,9 +78,11 @@ LatentLearn is architected as a decoupled, event-driven system combining a state
 -  [x] **Phase 1: Dual-Input Pipeline.** Robust file ingestion and automated topic-overview generator.
 -  [x] **Phase 2: Spatial Branching Core.** Multi-level tree state synchronization and inline highlighting triggers.
 -  [x] **Phase 3: Stateful LangGraph Engine.** Intent routing, context-passage anchoring, and automated off-topic evaluation.
--  [ ] **Phase 4: PostgreSQL Checkpoint Migration.** Swap the in-memory `MemorySaver` with `PostgresSaver` for persistent, multi-device cross-session history tracking.
--  [ ] **Phase 5: Local LLM Execution.** Integrate local Ollama runtimes, allowing the entire LangGraph workflow to run fully offline on Apple Silicon/local GPUs.
--  [ ] **Phase 6: Semantic Vector Memory Summarization.** Embed completed branches into a local vector database (ChromaDB) to perform semantic recall of past tangents across different topics.
+-  [ ] **Phase 4: Focus Tree Interactive Showcase (设计展现项目功能的测试/演示网址).** Design a dedicated test page/route demonstrating the complete Focus Tree, featuring interactive off-topic detection, visual guidance, and branch collapsing to showcase the core flow seamlessly.
+-  [ ] **Phase 5: Performance & Latency Tuning (解决与优化高时延问题).** Trace and profile the end-to-end request latency (Next.js proxy, FastAPI agent server, LangGraph step execution, and DeepSeek API round-trips) to pinpoint and optimize the bottleneck.
+-  [ ] **Phase 6: PostgreSQL Checkpoint Migration.** Swap the in-memory `MemorySaver` with `PostgresSaver` for persistent, multi-device cross-session history tracking.
+-  [ ] **Phase 7: Local LLM Execution.** Integrate local Ollama runtimes, allowing the entire LangGraph workflow to run fully offline on Apple Silicon/local GPUs.
+-  [ ] **Phase 8: Semantic Vector Memory Summarization.** Embed completed branches into a local vector database (ChromaDB) to perform semantic recall of past tangents across different topics.
 
 ---
 
