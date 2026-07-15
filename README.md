@@ -6,8 +6,8 @@
 
 > [!NOTE]
 > **💡 Project Origin**
-> The idea for this project stems from the experience of aimlessly chatting with an AI on various topics: when you want to expand or follow up on a specific detail mentioned earlier, you often have to scroll up through massive paragraphs of chat history and reconstruct the context in your mind, which introduces huge cognitive load.
-> **LatentLearn is an exploratory, experimental mini-project** designed to break this linear conversation bottleneck via a spatial "Focus Tree" interaction, allowing thoughts to branch off, collapse, and trace back freely.
+> The idea for this project stems from focused learning sessions with AI: when you have a clear topic, such as reading a paper, understanding a technical concept, or researching a product, every follow-up question naturally branches from the same root goal. In a linear chat, those branches are flattened into one timeline, forcing you to scroll, rebuild context, and remember how each question relates to the original topic.
+> **LatentLearn is an exploratory, experimental mini-project** designed for topic-driven learning and research. It breaks the linear conversation bottleneck via a spatial "Focus Tree" interaction, allowing topic-related questions to branch off, collapse, and trace back without losing the main learning path.
 
 ### 🌐 Live Deployment
 - **Frontend Web App (Vercel)**: 🌍 [https://latent-learn.vercel.app](https://latent-learn.vercel.app)
@@ -18,6 +18,8 @@
 ## 🌟 The UX Paradigm: Breaking the Linear Trap
 
 Traditional conversational interfaces (like standard ChatGPT or Claude) enforce a **linear waterfall model** of interaction: you ask, the AI answers, and you follow up in a single, vertical thread. 
+
+LatentLearn is not trying to replace every AI chat workflow. It is built for **focused, topic-defined knowledge work**: users who already have a subject they want to understand, and tasks where follow-up questions deepen, compare, or clarify parts of that subject. Typical scenarios include studying papers, learning technical concepts, analyzing a product or design, and exploring a document with many local details.
 
 For **divergent thinkers, associative learners, or individuals with ADHD**, this linear model acts as a cognitive bottleneck. When exploring complex topics, associative minds naturally branch off—diving deep into tangential details, which then trigger sub-tangents. 
 In a linear thread, this "rabbit hole" exploration creates two severe problems:
