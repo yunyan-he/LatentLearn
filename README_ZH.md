@@ -2,7 +2,7 @@
 
 > **专为发散思维者设计的空间化、非线性学习平台。基于 Next.js、FastAPI 和具有状态管理的 LangGraph LLM 工作流构建。**
 
-🌐 **中文版 README | [English README](file:///Users/aerin/Documents/LatentLearn/README.md)**
+🌐 **中文版 README | [English README](README_EN.md)**
 
 > [!NOTE]
 > **💡 项目想法来源 (Project Origin)**
@@ -12,6 +12,12 @@
 ### 🌐 在线部署
 - **前端 Web 应用 (Vercel)**: 🌍 [https://latent-learn.vercel.app](https://latent-learn.vercel.app)
 - **后端 Agent API (Hugging Face)**: 🤖 [https://howcloudy-latentlearn-agent.hf.space](https://howcloudy-latentlearn-agent.hf.space) | 🟢 [API 健康状态](https://howcloudy-latentlearn-agent.hf.space/health)
+
+### 📖 产品故事与案例研究
+- **Product Case Study (English)**: [From Linear Chat to Non-linear Learning](product-case-study.md)
+- **产品案例研究 (中文)**: [从线性聊天到非线性学习](product-case-study.zh-CN.md)
+
+README 负责说明 LatentLearn 是什么、如何运行、架构如何实现；Case Study 是互补的对外产品故事，面向 GitHub 读者、面试官和 portfolio reviewer，重点讲问题定义、产品决策、AI PM 取舍、指标和反思。
 
 ---
 
